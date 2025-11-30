@@ -1,0 +1,15 @@
+# Aircraft Landing Problem Instance - sample_10
+# 10 aircraft, 1 runway
+# Format: num_aircraft freeze_time
+# For each aircraft: appearance_time target_time latest_time early_penalty late_penalty sep_1 sep_2 ... sep_n
+10 0.0
+54 70 84 6 7 0 5 5 5 4 4 4 5 6 5
+13 42 66 5 5 5 0 5 5 6 3 5 4 4 5
+10 34 53 2 5 3 6 0 5 3 5 5 3 3 5
+60 74 87 6 6 4 5 5 0 6 6 4 3 4 4
+36 63 88 6 8 5 6 4 5 0 5 3 4 4 4
+15 32 47 4 7 5 5 3 3 4 0 6 5 6 4
+0 9 28 5 5 4 4 4 5 4 5 0 5 3 6
+13 31 59 9 6 6 4 4 5 6 6 4 0 5 4
+50 62 79 5 9 5 3 5 6 6 3 4 4 0 5
+5 25 55 6 7 3 4 6 5 4 5 5 3 5 0

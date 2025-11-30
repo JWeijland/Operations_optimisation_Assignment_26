@@ -244,6 +244,96 @@ def export_solution_json(
     print(f"Solution exported to: {filepath}")
 
 
+def export_detailed_solution_table(
+    instance: ProblemInstance,
+    solution: Solution,
+    filepath: str,
+    solution_type: str = "Solution"
+):
+    """
+    Export detailed solution table to CSV with all aircraft information.
+
+    Args:
+        instance: Problem instance
+        solution: Solution to export
+        filepath: Output file path (CSV)
+        solution_type: Type of solution (e.g., "Heuristic", "Optimal")
+    """
+    # Prepare data rows
+    rows = []
+
+    for aircraft in instance.aircraft:
+        landing_time = solution.get_landing_time(aircraft.id)
+        runway = solution.get_runway(aircraft.id)
+        deviation = landing_time - aircraft.target_time
+        cost = aircraft.calculate_cost(landing_time)
+
+        # Determine if early or late
+        if landing_time < aircraft.target_time:
+            status = "Early"
+            penalty_used = aircraft.early_penalty
+            time_diff = aircraft.target_time - landing_time
+        elif landing_time > aircraft.target_time:
+            status = "Late"
+            penalty_used = aircraft.late_penalty
+            time_diff = landing_time - aircraft.target_time
+        else:
+            status = "On-time"
+            penalty_used = 0
+            time_diff = 0
+
+        row = {
+            'Aircraft_ID': f'A{aircraft.id}',
+            'Runway': runway,
+            'Earliest_Time': aircraft.appearance_time,
+            'Target_Time': aircraft.target_time,
+            'Latest_Time': aircraft.latest_time,
+            'Actual_Landing_Time': landing_time,
+            'Deviation': deviation,
+            'Status': status,
+            'Time_Difference': time_diff,
+            'Early_Penalty_Rate': aircraft.early_penalty,
+            'Late_Penalty_Rate': aircraft.late_penalty,
+            'Penalty_Applied': penalty_used,
+            'Cost': cost
+        }
+        rows.append(row)
+
+    # Create DataFrame
+    df = pd.DataFrame(rows)
+
+    # Sort by runway and landing time
+    df = df.sort_values(['Runway', 'Actual_Landing_Time'])
+
+    # Add summary row
+    summary_row = {
+        'Aircraft_ID': 'TOTAL',
+        'Runway': '-',
+        'Earliest_Time': '-',
+        'Target_Time': '-',
+        'Latest_Time': '-',
+        'Actual_Landing_Time': '-',
+        'Deviation': '-',
+        'Status': '-',
+        'Time_Difference': '-',
+        'Early_Penalty_Rate': '-',
+        'Late_Penalty_Rate': '-',
+        'Penalty_Applied': '-',
+        'Cost': df['Cost'].sum()
+    }
+    df = pd.concat([df, pd.DataFrame([summary_row])], ignore_index=True)
+
+    # Write to CSV
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    df.to_csv(filepath, index=False, float_format='%.2f')
+
+    print(f"Detailed solution table exported to: {filepath}")
+
+    return df
+
+
 def create_latex_table(
     df: pd.DataFrame,
     caption: str = "",

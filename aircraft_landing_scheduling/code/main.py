@@ -18,6 +18,7 @@ from code.visualization import ResultVisualizer
 from code.utils import (
     print_solution_details,
     export_solution_json,
+    export_detailed_solution_table,
     validate_solution,
     print_table
 )
@@ -115,6 +116,14 @@ def run_single_instance(args):
     if args.export_json:
         json_path = Path(args.output_dir) / "tables" / f"{instance_name}_optimal.json"
         export_solution_json(instance, result.optimal_solution, str(json_path))
+
+    # Always export detailed CSV tables
+    print("\nExporting detailed solution tables...")
+    heuristic_csv = Path(args.output_dir) / "tables" / f"{instance_name}_heuristic_detailed.csv"
+    optimal_csv = Path(args.output_dir) / "tables" / f"{instance_name}_optimal_detailed.csv"
+
+    export_detailed_solution_table(instance, result.heuristic_solution, str(heuristic_csv), "Heuristic")
+    export_detailed_solution_table(instance, result.optimal_solution, str(optimal_csv), "Optimal")
 
     print("\n✓ Single instance experiment completed!")
 
