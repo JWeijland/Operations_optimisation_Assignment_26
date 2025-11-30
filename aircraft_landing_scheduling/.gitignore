@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual Environment
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Results
+results/tables/*.csv
+results/figures/*.png
+
+# LaTeX
+report/*.aux
+report/*.log
+report/*.pdf
+report/*.out
+
+# OS
+.DS_Store

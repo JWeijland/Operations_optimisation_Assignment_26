@@ -1,0 +1,33 @@
+﻿<!DOCTYPE html>
+<html><head>
+</head><body style="font-family: arial, helvetica, sans-serif;font-size: 16px;"><div>Implement an existing Mixed Integer Linear Programming model (the model should have some integer of binary elements) by taking the following steps:</div>
+<ul>
+<li>Select a type of (Mixed) Integer (Linear) Programming problem.&nbsp;Make an appointment if you want something else than:
+<ul>
+<li>Vehicle routing</li>
+<li>Gate planning&nbsp;</li>
+<li>Runway scheduling or allocation</li>
+</ul>
+</li>
+<li>Write down the mathematical formulation and describe the objective and function of the constraints in your own words.</li>
+<li>Program the model in Excel/VBA/Python or another language. As you will probably need to process quite some data (input and output), a link to Excel or even a database is highly recommended.</li>
+<li>Verification: Create relatively simple test data sets for which you know what the outcome of the model should be.</li>
+<li>Create a large scenario, in which you change the data set in such a way that the outcome (should) change along a range of values (sensitivity analysis). Think about how you can present your results.</li>
+<li>Present the resulting behaviour of the model in a graph.</li>
+<li>Write down your conclusions about the usability and limitations of the model.</li>
+</ul>
+<p>Tips:</p>
+<ul>
+<li>Use CPlex of Gurobi (Free academic versions available) to optimize the problem.
+<ul>
+<li><a href="https://community.ibm.com/community/user/datascience/blogs/xavier-nodet1/2020/07/09/cplex-free-for-students">https://community.ibm.com/community/user/datascience/blogs/xavier-nodet1/2020/07/09/cplex-free-for-students</a></li>
+<li><a href="https://www.gurobi.com/downloads/end-user-license-agreement-academic/">https://www.gurobi.com/downloads/end-user-license-agreement-academic/</a></li>
+</ul>
+</li>
+<li>
+<div>I (Paul) generally use code to a text file with the LP model, but you can also use the callable libraries in both Cplex and Gurobi (Alessandro). Exporting an LP file in that case will help you debug. It will also allow you to run it in a different solver.</div>
+</li>
+<li>
+<div>Please give constraints and variables meaningful names to make processing results and debugging easier.&nbsp;</div>
+</li>
+</ul></body></html>
