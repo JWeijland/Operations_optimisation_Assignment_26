@@ -334,6 +334,175 @@ def export_detailed_solution_table(
     return df
 
 
+def export_detailed_solution_excel(
+    instance: ProblemInstance,
+    solution: Solution,
+    filepath: str,
+    solution_type: str = "Solution"
+):
+    """
+    Export detailed solution table to Excel with beautiful formatting.
+
+    Args:
+        instance: Problem instance
+        solution: Solution to export
+        filepath: Output file path (Excel .xlsx)
+        solution_type: Type of solution (e.g., "Heuristic", "Optimal")
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils.dataframe import dataframe_to_rows
+
+    # Prepare data rows
+    rows = []
+
+    for aircraft in instance.aircraft:
+        landing_time = solution.get_landing_time(aircraft.id)
+        runway = solution.get_runway(aircraft.id)
+        deviation = landing_time - aircraft.target_time
+        cost = aircraft.calculate_cost(landing_time)
+
+        # Determine if early or late
+        if landing_time < aircraft.target_time:
+            status = "Early"
+            penalty_used = aircraft.early_penalty
+            time_diff = aircraft.target_time - landing_time
+        elif landing_time > aircraft.target_time:
+            status = "Late"
+            penalty_used = aircraft.late_penalty
+            time_diff = landing_time - aircraft.target_time
+        else:
+            status = "On-time"
+            penalty_used = 0
+            time_diff = 0
+
+        row = {
+            'Aircraft ID': f'A{aircraft.id}',
+            'Runway': runway,
+            'Earliest Time (min)': aircraft.appearance_time,
+            'Target Time (min)': aircraft.target_time,
+            'Latest Time (min)': aircraft.latest_time,
+            'Actual Landing (min)': landing_time,
+            'Deviation (min)': deviation,
+            'Status': status,
+            'Time Diff (min)': time_diff,
+            'Early Penalty (€/min)': aircraft.early_penalty,
+            'Late Penalty (€/min)': aircraft.late_penalty,
+            'Penalty Applied (€/min)': penalty_used,
+            'Cost (€)': cost
+        }
+        rows.append(row)
+
+    # Create DataFrame
+    df = pd.DataFrame(rows)
+
+    # Sort by runway and landing time
+    df = df.sort_values(['Runway', 'Actual Landing (min)'])
+
+    # Create Excel workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = f"{solution_type} Solution"
+
+    # Add title
+    ws.merge_cells('A1:M1')
+    title_cell = ws['A1']
+    title_cell.value = f"Aircraft Landing Schedule - {solution_type} Solution"
+    title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+    title_cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    title_cell.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 30
+
+    # Add metadata
+    ws['A2'] = f"Total Aircraft: {instance.num_aircraft}"
+    ws['A3'] = f"Total Cost: €{solution.objective_value:.2f}"
+    ws['A4'] = f"Solve Time: {solution.solve_time:.3f}s"
+    ws['A5'] = f"Status: {solution.status}"
+
+    for row in range(2, 6):
+        ws[f'A{row}'].font = Font(bold=True)
+
+    # Write headers (row 7)
+    headers = list(df.columns)
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=7, column=col_num)
+        cell.value = header
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+    # Write data
+    for row_num, row_data in enumerate(df.values, 8):
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num)
+            cell.value = value
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = Border(
+                left=Side(style='thin'),
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
+
+            # Format numbers
+            if col_num in [3, 4, 5, 6, 7, 9]:  # Time columns
+                if isinstance(value, (int, float)):
+                    cell.number_format = '0.00'
+            elif col_num in [10, 11, 12, 13]:  # Money columns
+                if isinstance(value, (int, float)):
+                    cell.number_format = '€#,##0.00'
+
+            # Color code status
+            if col_num == 8:  # Status column
+                if value == "Early":
+                    cell.fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+                elif value == "Late":
+                    cell.fill = PatternFill(start_color="FFE6E6", end_color="FFE6E6", fill_type="solid")
+                elif value == "On-time":
+                    cell.fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+
+    # Add TOTAL row
+    total_row = len(df) + 8
+    ws.cell(total_row, 1).value = "TOTAL"
+    ws.cell(total_row, 13).value = df['Cost (€)'].sum()
+    ws.cell(total_row, 13).number_format = '€#,##0.00'
+
+    for col in range(1, 14):
+        cell = ws.cell(total_row, col)
+        cell.font = Font(bold=True, size=12)
+        cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        cell.border = Border(
+            left=Side(style='medium'),
+            right=Side(style='medium'),
+            top=Side(style='medium'),
+            bottom=Side(style='medium')
+        )
+
+    # Adjust column widths
+    column_widths = {
+        'A': 12, 'B': 8, 'C': 18, 'D': 18, 'E': 18, 'F': 18,
+        'G': 16, 'H': 10, 'I': 16, 'J': 20, 'K': 20, 'L': 22, 'M': 12
+    }
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width
+
+    # Save file
+    filepath = Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    wb.save(filepath)
+
+    print(f"Detailed Excel table exported to: {filepath}")
+
+    return df
+
+
 def create_latex_table(
     df: pd.DataFrame,
     caption: str = "",

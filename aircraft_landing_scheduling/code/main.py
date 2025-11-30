@@ -19,6 +19,7 @@ from code.utils import (
     print_solution_details,
     export_solution_json,
     export_detailed_solution_table,
+    export_detailed_solution_excel,
     validate_solution,
     print_table
 )
@@ -117,13 +118,17 @@ def run_single_instance(args):
         json_path = Path(args.output_dir) / "tables" / f"{instance_name}_optimal.json"
         export_solution_json(instance, result.optimal_solution, str(json_path))
 
-    # Always export detailed CSV tables
+    # Always export detailed CSV and Excel tables
     print("\nExporting detailed solution tables...")
     heuristic_csv = Path(args.output_dir) / "tables" / f"{instance_name}_heuristic_detailed.csv"
     optimal_csv = Path(args.output_dir) / "tables" / f"{instance_name}_optimal_detailed.csv"
+    heuristic_excel = Path(args.output_dir) / "tables" / f"{instance_name}_heuristic_detailed.xlsx"
+    optimal_excel = Path(args.output_dir) / "tables" / f"{instance_name}_optimal_detailed.xlsx"
 
     export_detailed_solution_table(instance, result.heuristic_solution, str(heuristic_csv), "Heuristic")
     export_detailed_solution_table(instance, result.optimal_solution, str(optimal_csv), "Optimal")
+    export_detailed_solution_excel(instance, result.heuristic_solution, str(heuristic_excel), "Heuristic")
+    export_detailed_solution_excel(instance, result.optimal_solution, str(optimal_excel), "Optimal")
 
     print("\n✓ Single instance experiment completed!")
 
