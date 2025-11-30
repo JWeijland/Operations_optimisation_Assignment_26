@@ -24,30 +24,46 @@ class AircraftType:
     typical_models: List[str]
     early_cost_per_min: float  # Fuel cost for holding pattern
     late_cost_per_min: float   # Missed connections, gate fees, passenger compensation
+    early_buffer_min: float    # Minimum minutes can arrive early
+    early_buffer_max: float    # Maximum minutes can arrive early
+    late_buffer_min: float     # Minimum minutes can arrive late
+    late_buffer_max: float     # Maximum minutes can arrive late
 
 
-# Define realistic aircraft types
+# Define realistic aircraft types with consistent time buffers per type
 AIRCRAFT_TYPES = {
     'HEAVY': AircraftType(
         name='Heavy',
         wake_category='H',
         typical_models=['Boeing 747', 'Boeing 777', 'Airbus A330', 'Airbus A350'],
         early_cost_per_min=100.0,  # €100/min fuel cost
-        late_cost_per_min=200.0    # €200/min delay cost (higher due to connections)
+        late_cost_per_min=200.0,   # €200/min delay cost (higher due to connections)
+        early_buffer_min=5.0,      # Heavy aircraft: more fuel reserve
+        early_buffer_max=8.0,      # Can hold longer
+        late_buffer_min=10.0,      # More critical connections
+        late_buffer_max=15.0       # Higher priority for on-time
     ),
     'MEDIUM': AircraftType(
         name='Medium',
         wake_category='M',
         typical_models=['Boeing 737', 'Airbus A320', 'Embraer E190'],
         early_cost_per_min=60.0,   # €60/min fuel cost
-        late_cost_per_min=150.0    # €150/min delay cost
+        late_cost_per_min=150.0,   # €150/min delay cost
+        early_buffer_min=4.0,      # Medium aircraft: moderate fuel
+        early_buffer_max=6.0,
+        late_buffer_min=8.0,       # Some flexibility
+        late_buffer_max=12.0
     ),
     'LIGHT': AircraftType(
         name='Light',
         wake_category='L',
         typical_models=['Cessna Citation', 'Embraer Phenom', 'Pilatus PC-12'],
         early_cost_per_min=30.0,   # €30/min fuel cost
-        late_cost_per_min=80.0     # €80/min delay cost
+        late_cost_per_min=80.0,    # €80/min delay cost
+        early_buffer_min=3.0,      # Light aircraft: less fuel reserve
+        early_buffer_max=5.0,      # Tighter constraints
+        late_buffer_min=6.0,       # Lower priority, more flexible
+        late_buffer_max=10.0
     )
 }
 
@@ -128,25 +144,41 @@ def create_schiphol_evening_rush(
 
     aircraft_list = []
 
+    # Create overlapping time windows to force conflicts
+    # This simulates realistic runway congestion
     for i, ac_type in enumerate(aircraft_types):
         type_key = {'H': 'HEAVY', 'M': 'MEDIUM', 'L': 'LIGHT'}[ac_type]
         type_info = AIRCRAFT_TYPES[type_key]
 
         # Scheduled Time of Arrival (STA) - peak hour distribution
-        # More arrivals during 19:00-19:30
-        if np.random.random() < 0.4:  # 40% chance of peak hour
+        # More arrivals during 19:00-19:30 to create congestion
+        if np.random.random() < 0.5:  # 50% chance of peak hour (increased!)
             sta = np.random.uniform(60, 90)  # Peak: minute 60-90 (19:00-19:30)
         else:
             sta = np.random.uniform(0, 120)  # Rest spread over 2 hours
 
-        # Time windows (in minutes from 18:00)
-        # Early: can arrive up to 5-10 min early (already in holding pattern)
-        early_buffer = np.random.uniform(5, 10)
-        # Late: can be delayed 10-20 min (ATC delays, weather, traffic)
-        late_buffer = np.random.uniform(10, 20)
+        # REALISTIC VARIABILITY PER AIRCRAFT TYPE:
+        # Time buffers are consistent per aircraft type
+        # Heavy: more fuel, more flexibility
+        # Medium: moderate constraints
+        # Light: tight fuel constraints
+        early_buffer = np.random.uniform(
+            type_info.early_buffer_min,
+            type_info.early_buffer_max
+        )
+        late_buffer = np.random.uniform(
+            type_info.late_buffer_min,
+            type_info.late_buffer_max
+        )
 
         earliest_time = max(0, sta - early_buffer)
         latest_time = sta + late_buffer
+
+        # Add stochastic variation: actual preferred time might differ slightly from STA
+        # This represents uncertainty in flight arrival predictions
+        # Shifts target time by -2 to +2 minutes randomly
+        target_variation = np.random.uniform(-2, 2)
+        actual_target = np.clip(sta + target_variation, earliest_time + 0.5, latest_time - 0.5)
 
         # Convert costs from per-minute to per-time-unit
         # Since we're using minutes as time units now
@@ -156,7 +188,7 @@ def create_schiphol_evening_rush(
         aircraft = Aircraft(
             id=i + 1,
             appearance_time=earliest_time,
-            target_time=sta,
+            target_time=actual_target,  # Use varied target instead of exact STA
             latest_time=latest_time,
             early_penalty=early_penalty,
             late_penalty=late_penalty
