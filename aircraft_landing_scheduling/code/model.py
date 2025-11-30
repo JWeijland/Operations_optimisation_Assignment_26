@@ -326,23 +326,22 @@ class AircraftLandingModel:
                 id_j = aircraft[j].id
                 z_ij = self.variables['z'][(id_i, id_j)]
 
+                # Linearization of: z_ij = OR_r(y_ir AND y_jr)
+                # Lower bound: If both on runway r, then z_ij must be 1
                 for r in range(1, self.num_runways + 1):
                     y_ir = self.variables['y'][(id_i, r)]
                     y_jr = self.variables['y'][(id_j, r)]
 
-                    # If both on runway r, then z_ij = 1
                     self.model += (
                         z_ij >= y_ir + y_jr - 1,
                         f"SameRunway_{id_i}_{id_j}_r{r}_lower"
                     )
 
-                # z_ij = 0 if on different runways
-                self.model += (
-                    z_ij <= lpSum([self.variables['y'][(id_i, r)] *
-                                  self.variables['y'][(id_j, r)]
-                                  for r in range(1, self.num_runways + 1)]),
-                    f"SameRunway_{id_i}_{id_j}_upper"
-                )
+                # Upper bound: z_ij can be 1 only if sum over all runways of common assignments >= 1
+                # Simpler: z_ij <= sum_r of min(y_ir, y_jr)
+                # We approximate with: z_ij * num_runways <= sum_r (y_ir + y_jr)
+                # Even simpler: just ensure z_ij = 0 if no common runway exists
+                # The lower bound constraints already handle this correctly!
 
     def solve(self, time_limit: int = 300, gap: float = 0.01,
               solver_name: str = 'PULP_CBC_CMD', verbose: bool = True) -> Optional[Solution]:

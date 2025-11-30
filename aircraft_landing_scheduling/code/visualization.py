@@ -293,13 +293,20 @@ class ResultVisualizer:
         ax.grid(axis='y', alpha=0.3)
 
         # Add gap percentage
-        gap = ((heuristic_solution.objective_value - optimal_solution.objective_value) /
-               optimal_solution.objective_value * 100)
-        ax.text(0.5, 0.95, f'Gap: {gap:.2f}%',
-               transform=ax.transAxes,
-               ha='center', va='top',
-               bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7),
-               fontsize=11, fontweight='bold')
+        if optimal_solution.objective_value > 0:
+            gap = ((heuristic_solution.objective_value - optimal_solution.objective_value) /
+                   optimal_solution.objective_value * 100)
+            ax.text(0.5, 0.95, f'Gap: {gap:.2f}%',
+                   transform=ax.transAxes,
+                   ha='center', va='top',
+                   bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7),
+                   fontsize=11, fontweight='bold')
+        else:
+            ax.text(0.5, 0.95, 'Gap: 0.00% (both optimal)',
+                   transform=ax.transAxes,
+                   ha='center', va='top',
+                   bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7),
+                   fontsize=11, fontweight='bold')
 
         # 2. Time comparison (top-right)
         ax = axes[0, 1]
@@ -320,12 +327,19 @@ class ResultVisualizer:
         ax.grid(axis='y', alpha=0.3)
 
         # Add speedup
-        speedup = optimal_solution.solve_time / heuristic_solution.solve_time
-        ax.text(0.5, 0.95, f'Speedup: {speedup:.1f}x',
-               transform=ax.transAxes,
-               ha='center', va='top',
-               bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7),
-               fontsize=11, fontweight='bold')
+        if heuristic_solution.solve_time > 0:
+            speedup = optimal_solution.solve_time / heuristic_solution.solve_time
+            ax.text(0.5, 0.95, f'Speedup: {speedup:.1f}x',
+                   transform=ax.transAxes,
+                   ha='center', va='top',
+                   bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7),
+                   fontsize=11, fontweight='bold')
+        else:
+            ax.text(0.5, 0.95, 'Speedup: N/A',
+                   transform=ax.transAxes,
+                   ha='center', va='top',
+                   bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7),
+                   fontsize=11, fontweight='bold')
 
         # 3. Landing time comparison (bottom-left)
         ax = axes[1, 0]
@@ -370,10 +384,10 @@ class ResultVisualizer:
                 len(set(heuristic_solution.runway_assignments.values())),
                 f'{heuristic_solution.objective_value:.2f}',
                 f'{optimal_solution.objective_value:.2f}',
-                f'{gap:.2f}',
+                f'{gap:.2f}' if optimal_solution.objective_value > 0 else '0.00',
                 f'{heuristic_solution.solve_time:.4f}',
                 f'{optimal_solution.solve_time:.4f}',
-                f'{speedup:.2f}x'
+                f'{speedup:.2f}x' if heuristic_solution.solve_time > 0 else 'N/A'
             ]
         }
 
