@@ -203,6 +203,48 @@ class DataLoader:
         return instance
 
     @staticmethod
+    def save_to_file(instance: ProblemInstance, filepath: str, instance_name: str = "sample"):
+        """
+        Save a problem instance to OR-Library format file.
+
+        Args:
+            instance: Problem instance to save
+            filepath: Path to save the file
+            instance_name: Name for the instance (for header comment)
+        """
+        filepath = Path(filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(filepath, 'w') as f:
+            # Write header comments
+            f.write(f"# Aircraft Landing Problem Instance - {instance_name}\n")
+            f.write(f"# {instance.num_aircraft} aircraft, 1 runway\n")
+            f.write("# Format: num_aircraft freeze_time\n")
+            f.write("# For each aircraft: appearance_time target_time latest_time "
+                   "early_penalty late_penalty sep_1 sep_2 ... sep_n\n")
+
+            # Write number of aircraft and freeze time
+            f.write(f"{instance.num_aircraft} {instance.freeze_time}\n")
+
+            # Write each aircraft data
+            for i, aircraft in enumerate(instance.aircraft):
+                # Basic data
+                f.write(f"{aircraft.appearance_time:.0f} ")
+                f.write(f"{aircraft.target_time:.0f} ")
+                f.write(f"{aircraft.latest_time:.0f} ")
+                f.write(f"{aircraft.early_penalty:.0f} ")
+                f.write(f"{aircraft.late_penalty:.0f}")
+
+                # Separation times
+                for j in range(instance.num_aircraft):
+                    sep = instance.get_separation(i, j)
+                    f.write(f" {sep:.0f}")
+
+                f.write("\n")
+
+        print(f"Instance saved to: {filepath}")
+
+    @staticmethod
     def validate_instance(instance: ProblemInstance) -> Tuple[bool, List[str]]:
         """
         Validate problem instance for consistency and feasibility.

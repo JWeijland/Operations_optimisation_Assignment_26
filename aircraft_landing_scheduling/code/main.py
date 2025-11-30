@@ -42,6 +42,10 @@ def run_single_instance(args):
             seed=args.seed
         )
         instance_name = f"sample_{args.num_aircraft}"
+
+        # Save sample instance to data folder
+        data_file = Path("data") / f"sample_{args.num_aircraft}_seed{args.seed}.txt"
+        DataLoader.save_to_file(instance, str(data_file), instance_name)
     else:
         print(f"\nLoading instance: {args.instance}")
         instance = DataLoader.load_from_file(args.instance)
@@ -238,6 +242,10 @@ def run_runway_analysis(args):
             seed=args.seed
         )
         instance_name = f"sample_{args.num_aircraft}"
+
+        # Save sample instance to data folder
+        data_file = Path("data") / f"sample_{args.num_aircraft}_seed{args.seed}.txt"
+        DataLoader.save_to_file(instance, str(data_file), instance_name)
     else:
         print(f"\nLoading instance: {args.instance}")
         instance = DataLoader.load_from_file(args.instance)

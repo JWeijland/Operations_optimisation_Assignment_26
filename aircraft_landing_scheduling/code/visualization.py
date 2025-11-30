@@ -136,8 +136,10 @@ class ResultVisualizer:
         ax.legend(handles=legend_elements, loc='upper right',
                  fontsize=10, framealpha=0.9)
 
-        # Add cost annotation
-        cost_text = f'Total Cost: {solution.objective_value:.2f}\n'
+        # Add cost annotation with dataset info
+        cost_text = f'Dataset: {filename if filename else "unknown"}\n'
+        cost_text += f'Aircraft: {instance.num_aircraft}, Runways: {num_runways}\n'
+        cost_text += f'Total Cost: {solution.objective_value:.2f}\n'
         cost_text += f'Status: {solution.status}\n'
         cost_text += f'Solve Time: {solution.solve_time:.3f}s'
 
@@ -243,7 +245,13 @@ class ResultVisualizer:
         ]
         ax2.legend(handles=legend_elements)
 
-        plt.tight_layout()
+        # Add dataset info as suptitle
+        num_runways = len(set(solution.runway_assignments.values()))
+        plt.suptitle(f'Dataset: {filename if filename else "unknown"} | '
+                    f'{instance.num_aircraft} aircraft, {num_runways} runway(s)',
+                    fontsize=11, fontweight='bold', y=0.98)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
 
         if filename:
             filepath = self.output_dir / f"{filename}.png"
@@ -418,7 +426,11 @@ class ResultVisualizer:
         ax.set_title('Summary Statistics', fontweight='bold',
                     fontsize=12, pad=20)
 
-        plt.suptitle(f'Heuristic vs Optimal Comparison\nInstance: {instance.num_aircraft} aircraft',
+        # Add dataset info to title
+        dataset_name = filename if filename else "unknown"
+        plt.suptitle(f'Heuristic vs Optimal Comparison\n'
+                    f'Dataset: {dataset_name} | {instance.num_aircraft} aircraft, '
+                    f'{len(set(heuristic_solution.runway_assignments.values()))} runway(s)',
                     fontsize=14, fontweight='bold', y=0.98)
 
         plt.tight_layout(rect=[0, 0, 1, 0.96])
