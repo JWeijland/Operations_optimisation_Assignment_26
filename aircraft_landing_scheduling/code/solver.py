@@ -398,26 +398,3 @@ class BatchSolver:
             print(f"\nRunway analysis saved to: {output_path}")
 
         return df
-
-
-if __name__ == "__main__":
-    # Test the solver
-    from .data_loader import DataLoader
-
-    print("Testing Solver Module...")
-
-    # Create sample instance
-    instance = DataLoader.create_sample_instance(num_aircraft=8)
-
-    # Test single solve
-    print("\n1. Single instance solve and compare:")
-    solver = OptimalSolver(instance, instance_name="test_instance")
-    result = solver.solve_and_compare(num_runways=1, time_limit=60)
-
-    print(f"\nResult: {result}")
-
-    # Test runway analysis
-    print("\n2. Runway analysis:")
-    df = solver.solve_multiple_runways(max_runways=3, time_limit=60)
-    print("\nRunway Analysis Results:")
-    print(df)

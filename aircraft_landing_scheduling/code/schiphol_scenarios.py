@@ -334,28 +334,3 @@ def create_scenario_3runways_heavy() -> ProblemInstance:
         light_ratio=0.10,
         seed=103
     )
-
-
-if __name__ == "__main__":
-    """Generate all predefined scenarios."""
-    print("Generating realistic Schiphol landing scenarios...")
-    print("=" * 70)
-
-    scenarios = [
-        ("Scenario 1: Single runway, light traffic", create_scenario_1runway_light),
-        ("Scenario 2: Single runway, heavy traffic", create_scenario_1runway_heavy),
-        ("Scenario 3: Two runways, medium traffic", create_scenario_2runways_medium),
-        ("Scenario 4: Three runways, heavy traffic", create_scenario_3runways_heavy),
-    ]
-
-    for desc, create_func in scenarios:
-        print(f"\n{desc}")
-        instance = create_func()
-        print(f"  ✓ Generated {instance.num_aircraft} aircraft")
-
-    print("\n" + "=" * 70)
-    print("All scenarios generated successfully!")
-    print("\nYou can now run them with:")
-    print("  python code/main.py --instance data/schiphol_1runway_light.txt --runways 1")
-    print("  python code/main.py --instance data/schiphol_2runways_medium.txt --runways 2")
-    print("  etc.")

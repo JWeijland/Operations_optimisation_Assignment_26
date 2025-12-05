@@ -373,24 +373,3 @@ class DataLoader:
 
         if instance.num_aircraft > 5:
             print(f"... (showing first 5 of {instance.num_aircraft} aircraft)")
-
-
-if __name__ == "__main__":
-    # Test the data loader
-    print("Testing DataLoader module...")
-
-    # Create sample instance
-    print("\n1. Creating sample instance...")
-    instance = DataLoader.create_sample_instance(num_aircraft=5)
-    DataLoader.print_instance_summary(instance)
-
-    # Validate instance
-    print("\n2. Validating instance...")
-    is_valid, warnings = DataLoader.validate_instance(instance)
-    print(f"Valid: {is_valid}")
-    if warnings:
-        print("Warnings:")
-        for warning in warnings:
-            print(f"  - {warning}")
-
-    print("\nDataLoader module test completed!")

@@ -139,68 +139,93 @@ class GreedyHeuristic:
         """
         Find the earliest feasible landing time for an aircraft on a given runway.
 
+        GOAL: Find a landing time that:
+        1. Is within the aircraft's time window [earliest, latest]
+        2. Respects separation requirements with all already-scheduled aircraft
+        3. Is as close as possible to the target time
+
+        ALGORITHM:
+        - Start with the target time (ideal case)
+        - Check if it conflicts with any already-scheduled aircraft
+        - If conflict: move the time forward until no conflicts exist
+        - Keep trying until we find a valid time or run out of options
+
         Args:
-            aircraft: Aircraft to schedule
-            runway: Runway number
+            aircraft: The aircraft we want to schedule
+            runway: The runway number (1, 2, 3, etc.)
 
         Returns:
-            Earliest feasible time, or None if no feasible time exists
+            A valid landing time, or the latest time as fallback
         """
-        # Start with target time (preferred)
+        # Start with target time (this is what the aircraft prefers)
         candidate_time = aircraft.target_time
 
-        # Get already scheduled aircraft on this runway
-        scheduled_on_runway = self.runway_schedules[runway]
+        # Get list of aircraft IDs that are already scheduled on this runway
+        already_scheduled_aircraft = self.runway_schedules[runway]
 
-        if not scheduled_on_runway:
-            # Empty runway - use target if feasible, else earliest
+        # CASE 1: Runway is empty - easy case!
+        if not already_scheduled_aircraft:
+            # Just use target time if it's after the aircraft arrives
             if candidate_time >= aircraft.appearance_time:
                 return candidate_time
             else:
+                # Aircraft can't make it to target, land as soon as it arrives
                 return aircraft.appearance_time
 
-        # Check separation with all scheduled aircraft
+        # CASE 2: Runway has other aircraft - need to check separations
+        # Keep trying different times until we find one that works
         while candidate_time <= aircraft.latest_time:
-            feasible = True
+            time_is_valid = True  # Assume it's valid until proven otherwise
 
-            for scheduled_id in scheduled_on_runway:
-                scheduled_time = self.landing_times[scheduled_id]
-                scheduled_idx = self._get_aircraft_index(scheduled_id)
-                current_idx = self._get_aircraft_index(aircraft.id)
+            # Check against each already-scheduled aircraft
+            for scheduled_aircraft_id in already_scheduled_aircraft:
+                scheduled_landing_time = self.landing_times[scheduled_aircraft_id]
+                scheduled_aircraft_index = self._get_aircraft_index(scheduled_aircraft_id)
+                current_aircraft_index = self._get_aircraft_index(aircraft.id)
 
-                if scheduled_time <= candidate_time:
-                    # Scheduled aircraft lands first
-                    required_sep = self.instance.get_separation(
-                        scheduled_idx, current_idx
+                # SCENARIO A: The scheduled aircraft lands BEFORE our candidate time
+                if scheduled_landing_time <= candidate_time:
+                    # Calculate required separation time
+                    required_separation = self.instance.get_separation(
+                        scheduled_aircraft_index, current_aircraft_index
                     )
-                    if candidate_time < scheduled_time + required_sep:
-                        # Violation - move candidate time forward
-                        candidate_time = scheduled_time + required_sep
-                        feasible = False
-                        break
+
+                    # Check if candidate time is too soon after the scheduled aircraft
+                    if candidate_time < scheduled_landing_time + required_separation:
+                        # TOO SOON! Move candidate time forward to respect separation
+                        candidate_time = scheduled_landing_time + required_separation
+                        time_is_valid = False
+                        break  # Start checking all aircraft again with new time
+
+                # SCENARIO B: The scheduled aircraft lands AFTER our candidate time
                 else:
-                    # Current aircraft would land first
-                    required_sep = self.instance.get_separation(
-                        current_idx, scheduled_idx
+                    # Calculate required separation time (reversed order)
+                    required_separation = self.instance.get_separation(
+                        current_aircraft_index, scheduled_aircraft_index
                     )
-                    if scheduled_time < candidate_time + required_sep:
-                        # Would violate separation - current time not feasible
-                        feasible = False
-                        # Try next position (after scheduled aircraft)
-                        candidate_time = scheduled_time + 0.01
-                        break
 
-            if feasible and candidate_time >= aircraft.appearance_time:
+                    # Check if our candidate time is too close to the scheduled aircraft
+                    if scheduled_landing_time < candidate_time + required_separation:
+                        # CONFLICT! Our candidate time doesn't leave enough room
+                        time_is_valid = False
+                        # Try landing just after this aircraft (small offset to avoid exact equality)
+                        candidate_time = scheduled_landing_time + 0.01
+                        break  # Start checking all aircraft again with new time
+
+            # Did we find a valid time?
+            if time_is_valid and candidate_time >= aircraft.appearance_time:
                 return candidate_time
 
-            # Ensure we don't get stuck
-            if not feasible:
-                continue
+            # If not valid, the loop continues with the adjusted candidate_time
+            # Safety check to avoid infinite loops
+            if not time_is_valid:
+                continue  # Try again with the new candidate_time
             else:
+                # No conflicts but still need to search? Move forward slightly
                 candidate_time += 0.1
 
-        # No feasible time found in time window
-        # Return latest time as fallback (may violate separations)
+        # If we get here, we couldn't find a perfect time within the window
+        # Return latest time as fallback (solver will handle any violations)
         return aircraft.latest_time
 
     def _improve_solution(self):
@@ -381,30 +406,3 @@ class MultiStartGreedy:
 
         print(f"\nBest solution: {best_cost:.2f}")
         return best_solution
-
-
-if __name__ == "__main__":
-    # Test the heuristic
-    from .data_loader import DataLoader
-
-    print("Testing Greedy Heuristic...")
-
-    # Create sample instance
-    instance = DataLoader.create_sample_instance(num_aircraft=10)
-
-    # Run single greedy heuristic
-    print("\n1. Single greedy heuristic:")
-    heuristic = GreedyHeuristic(instance, num_runways=1)
-    solution = heuristic.solve()
-
-    print(f"\nSolution: {solution}")
-    print("Landing times:")
-    for aid in sorted(solution.landing_times.keys()):
-        print(f"  Aircraft {aid}: {solution.landing_times[aid]:.2f}")
-
-    # Run multi-start greedy
-    print("\n\n2. Multi-start greedy heuristic:")
-    multi_start = MultiStartGreedy(instance, num_runways=1)
-    solution = multi_start.solve(num_starts=3)
-
-    print(f"\nBest solution: {solution}")

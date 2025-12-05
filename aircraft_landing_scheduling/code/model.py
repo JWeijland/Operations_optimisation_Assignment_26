@@ -113,11 +113,25 @@ class AircraftLandingModel:
     def _calculate_big_m(self) -> float:
         """
         Calculate Big-M constant for disjunctive constraints.
-        M should be larger than any possible time difference.
+
+        Big-M is a large number used in optimization to model "either-or" constraints.
+        In our case, it's used to enforce that either:
+        - Aircraft i lands before aircraft j, OR
+        - Aircraft j lands before aircraft i
+
+        The Big-M must be larger than any possible time difference between aircraft,
+        so we calculate it as: maximum landing time + maximum separation time + safety buffer
         """
-        max_time = max(a.latest_time for a in self.instance.aircraft)
-        max_sep = np.max(self.instance.separation_matrix)
-        return max_time + max_sep + 100
+        # Find the latest possible landing time of any aircraft
+        max_time = max(aircraft.latest_time for aircraft in self.instance.aircraft)
+
+        # Find the longest separation requirement between any two aircraft
+        max_separation = np.max(self.instance.separation_matrix)
+
+        # Big-M = max time + max separation + safety buffer of 100
+        big_m_value = max_time + max_separation + 100
+
+        return big_m_value
 
     def build_model(self):
         """
@@ -147,160 +161,268 @@ class AircraftLandingModel:
               f"{self.model.numConstraints()} constraints")
 
     def _create_variables(self):
-        """Create all decision variables."""
-        aircraft = self.instance.aircraft
-        n = len(aircraft)
+        """
+        Create all decision variables for the optimization model.
 
-        # Landing time variables: x_i
-        self.variables['x'] = {
-            a.id: LpVariable(f"x_{a.id}",
-                           lowBound=a.appearance_time,
-                           upBound=a.latest_time,
-                           cat='Continuous')
-            for a in aircraft
-        }
+        We create 4 types of variables:
+        1. Landing times (when each aircraft lands)
+        2. Early deviations (how much before target time)
+        3. Late deviations (how much after target time)
+        4. Ordering variables (which aircraft lands first)
+        5. Runway assignments (if multiple runways)
+        """
+        aircraft_list = self.instance.aircraft
+        number_of_aircraft = len(aircraft_list)
 
-        # Early/late deviation variables: α_i, β_i
-        self.variables['alpha'] = {
-            a.id: LpVariable(f"alpha_{a.id}",
-                           lowBound=0,
-                           upBound=a.target_time - a.appearance_time,
-                           cat='Continuous')
-            for a in aircraft
-        }
+        # ===== 1. LANDING TIME VARIABLES =====
+        # For each aircraft, we have a continuous variable representing when it lands
+        # Bounds: must be between earliest possible time and latest possible time
+        self.variables['x'] = {}  # 'x' stores the actual landing time
+        for aircraft in aircraft_list:
+            landing_time_var = LpVariable(
+                f"landing_time_{aircraft.id}",
+                lowBound=aircraft.appearance_time,  # Can't land before this
+                upBound=aircraft.latest_time,       # Can't land after this
+                cat='Continuous'
+            )
+            self.variables['x'][aircraft.id] = landing_time_var
 
-        self.variables['beta'] = {
-            a.id: LpVariable(f"beta_{a.id}",
-                           lowBound=0,
-                           upBound=a.latest_time - a.target_time,
-                           cat='Continuous')
-            for a in aircraft
-        }
+        # ===== 2. EARLY DEVIATION VARIABLES =====
+        # How many time units BEFORE the target time the aircraft lands
+        # Example: if target is 10 and aircraft lands at 7, early deviation = 3
+        self.variables['alpha'] = {}  # 'alpha' = early deviation
+        for aircraft in aircraft_list:
+            max_early_deviation = aircraft.target_time - aircraft.appearance_time
+            early_deviation_var = LpVariable(
+                f"early_deviation_{aircraft.id}",
+                lowBound=0,                      # Can't be negative
+                upBound=max_early_deviation,     # Maximum = target - earliest
+                cat='Continuous'
+            )
+            self.variables['alpha'][aircraft.id] = early_deviation_var
 
-        # Ordering variables: δ_ij
+        # ===== 3. LATE DEVIATION VARIABLES =====
+        # How many time units AFTER the target time the aircraft lands
+        # Example: if target is 10 and aircraft lands at 13, late deviation = 3
+        self.variables['beta'] = {}  # 'beta' = late deviation
+        for aircraft in aircraft_list:
+            max_late_deviation = aircraft.latest_time - aircraft.target_time
+            late_deviation_var = LpVariable(
+                f"late_deviation_{aircraft.id}",
+                lowBound=0,                     # Can't be negative
+                upBound=max_late_deviation,     # Maximum = latest - target
+                cat='Continuous'
+            )
+            self.variables['beta'][aircraft.id] = late_deviation_var
+
+        # ===== 4. ORDERING VARIABLES (BINARY) =====
+        # For each pair of aircraft (i, j), we have a binary variable:
+        # delta[i,j] = 1 if aircraft i lands BEFORE aircraft j
+        # delta[i,j] = 0 if aircraft j lands BEFORE aircraft i
         self.variables['delta'] = {}
-        for i in range(n):
-            for j in range(i + 1, n):
-                id_i = aircraft[i].id
-                id_j = aircraft[j].id
-                self.variables['delta'][(id_i, id_j)] = LpVariable(
-                    f"delta_{id_i}_{id_j}",
-                    cat='Binary'
-                )
+        for i in range(number_of_aircraft):
+            for j in range(i + 1, number_of_aircraft):  # Only create for i < j (avoid duplicates)
+                aircraft_i_id = aircraft_list[i].id
+                aircraft_j_id = aircraft_list[j].id
 
-        # Runway assignment variables (if multiple runways): y_ir
+                ordering_var = LpVariable(
+                    f"ordering_{aircraft_i_id}_before_{aircraft_j_id}",
+                    cat='Binary'  # Can only be 0 or 1
+                )
+                self.variables['delta'][(aircraft_i_id, aircraft_j_id)] = ordering_var
+
+        # ===== 5. RUNWAY ASSIGNMENT VARIABLES (IF MULTIPLE RUNWAYS) =====
+        # For each aircraft and each runway, we have a binary variable:
+        # y[aircraft, runway] = 1 if aircraft is assigned to that runway
+        # y[aircraft, runway] = 0 otherwise
         if self.num_runways > 1:
             self.variables['y'] = {}
-            for a in aircraft:
-                for r in range(1, self.num_runways + 1):
-                    self.variables['y'][(a.id, r)] = LpVariable(
-                        f"y_{a.id}_{r}",
+            for aircraft in aircraft_list:
+                for runway_number in range(1, self.num_runways + 1):
+                    runway_assignment_var = LpVariable(
+                        f"aircraft_{aircraft.id}_on_runway_{runway_number}",
                         cat='Binary'
                     )
+                    self.variables['y'][(aircraft.id, runway_number)] = runway_assignment_var
 
-            # Same runway indicator: z_ij (1 if i and j on same runway)
+            # ===== 6. SAME RUNWAY INDICATOR VARIABLES (FOR SEPARATION CONSTRAINTS) =====
+            # For each pair of aircraft (i, j), we have a binary variable:
+            # z[i,j] = 1 if both aircraft i and j are on the SAME runway
+            # z[i,j] = 0 if they are on DIFFERENT runways
+            # This is needed because separation is only required on the same runway
             self.variables['z'] = {}
-            for i in range(n):
-                for j in range(i + 1, n):
-                    id_i = aircraft[i].id
-                    id_j = aircraft[j].id
-                    self.variables['z'][(id_i, id_j)] = LpVariable(
-                        f"z_{id_i}_{id_j}",
+            for i in range(number_of_aircraft):
+                for j in range(i + 1, number_of_aircraft):
+                    aircraft_i_id = aircraft_list[i].id
+                    aircraft_j_id = aircraft_list[j].id
+
+                    same_runway_var = LpVariable(
+                        f"same_runway_{aircraft_i_id}_{aircraft_j_id}",
                         cat='Binary'
                     )
+                    self.variables['z'][(aircraft_i_id, aircraft_j_id)] = same_runway_var
 
     def _set_objective(self):
-        """Set the objective function: minimize total cost."""
-        aircraft = self.instance.aircraft
+        """
+        Set the objective function: minimize total cost.
 
-        objective = lpSum([
-            a.early_penalty * self.variables['alpha'][a.id] +
-            a.late_penalty * self.variables['beta'][a.id]
-            for a in aircraft
+        The total cost is calculated as:
+        - For each aircraft that lands EARLY: early_penalty × early_deviation
+        - For each aircraft that lands LATE: late_penalty × late_deviation
+        - Sum all these costs across all aircraft
+
+        Example: If aircraft 1 lands 3 minutes early with penalty €50/min,
+                 the cost is 3 × 50 = €150
+        """
+        aircraft_list = self.instance.aircraft
+
+        # Calculate total cost by summing penalties for all aircraft
+        total_cost = lpSum([
+            # Cost if aircraft lands early
+            aircraft.early_penalty * self.variables['alpha'][aircraft.id] +
+            # Cost if aircraft lands late
+            aircraft.late_penalty * self.variables['beta'][aircraft.id]
+            for aircraft in aircraft_list
         ])
 
-        self.model += objective, "Total_Cost"
+        # Set this as the objective to minimize
+        self.model += total_cost
 
     def _add_time_window_constraints(self):
         """
-        Add time window constraints: E_i ≤ x_i ≤ L_i
-        (Already enforced by variable bounds, but we can add explicitly)
+        Add time window constraints: each aircraft must land within its time window.
+
+        For each aircraft:
+        - Landing time ≥ Earliest time (can't land before it arrives)
+        - Landing time ≤ Latest time (can't land after deadline)
+
+        Note: These constraints are already enforced by variable bounds,
+        but we add them explicitly for clarity.
         """
-        for a in self.instance.aircraft:
+        for aircraft in self.instance.aircraft:
+            # Constraint: landing time must be at or after earliest time
             self.model += (
-                self.variables['x'][a.id] >= a.appearance_time,
-                f"EarlyBound_{a.id}"
+                self.variables['x'][aircraft.id] >= aircraft.appearance_time,
+                f"Earliest_time_bound_aircraft_{aircraft.id}"
             )
+
+            # Constraint: landing time must be at or before latest time
             self.model += (
-                self.variables['x'][a.id] <= a.latest_time,
-                f"LateBound_{a.id}"
+                self.variables['x'][aircraft.id] <= aircraft.latest_time,
+                f"Latest_time_bound_aircraft_{aircraft.id}"
             )
 
     def _add_target_deviation_constraints(self):
         """
-        Add target time deviation constraints: x_i = T_i - α_i + β_i
+        Add target time deviation constraints: link landing time to early/late deviations.
+
+        This constraint ensures that:
+        landing_time = target_time - early_deviation + late_deviation
+
+        Examples:
+        - If landing at target time (10): 10 = 10 - 0 + 0 ✓
+        - If landing 3 minutes early (7): 7 = 10 - 3 + 0 ✓
+        - If landing 2 minutes late (12): 12 = 10 - 0 + 2 ✓
+
+        Only one of early_deviation or late_deviation will be non-zero
+        (enforced automatically by the optimization).
         """
-        for a in self.instance.aircraft:
+        for aircraft in self.instance.aircraft:
+            # Constraint: landing_time = target_time - early_deviation + late_deviation
             self.model += (
-                self.variables['x'][a.id] ==
-                a.target_time - self.variables['alpha'][a.id] +
-                self.variables['beta'][a.id],
-                f"TargetDeviation_{a.id}"
+                self.variables['x'][aircraft.id] ==
+                aircraft.target_time
+                - self.variables['alpha'][aircraft.id]  # Subtract early deviation
+                + self.variables['beta'][aircraft.id],   # Add late deviation
+                f"Target_deviation_constraint_aircraft_{aircraft.id}"
             )
 
     def _add_separation_constraints(self):
         """
         Add separation constraints between aircraft.
 
-        For single runway:
-            If δ_ij = 1: x_j ≥ x_i + S_ij
-            If δ_ij = 0: x_i ≥ x_j + S_ji
+        SEPARATION REQUIREMENT:
+        When two aircraft land on the same runway, there must be enough time between
+        their landings for safety (wake turbulence, runway clearing, etc.).
 
-        For multiple runways:
-            Only enforce if on same runway (z_ij = 1)
+        LOGIC:
+        For each pair of aircraft (i, j), we need to enforce:
+        - If i lands BEFORE j: landing_time_j ≥ landing_time_i + separation_time_i_to_j
+        - If j lands BEFORE i: landing_time_i ≥ landing_time_j + separation_time_j_to_i
+
+        We use the "ordering variable" delta to decide which one applies:
+        - delta[i,j] = 1 means i lands BEFORE j
+        - delta[i,j] = 0 means j lands BEFORE i
+
+        The Big-M technique is used to activate/deactivate constraints based on delta.
         """
-        aircraft = self.instance.aircraft
-        n = len(aircraft)
+        aircraft_list = self.instance.aircraft
+        number_of_aircraft = len(aircraft_list)
 
-        for i in range(n):
-            for j in range(i + 1, n):
-                id_i = aircraft[i].id
-                id_j = aircraft[j].id
-                sep_ij = self.instance.get_separation(i, j)
-                sep_ji = self.instance.get_separation(j, i)
+        # Loop through all pairs of aircraft
+        for i in range(number_of_aircraft):
+            for j in range(i + 1, number_of_aircraft):  # Only i < j to avoid duplicates
+                # Get aircraft IDs and their separation requirements
+                aircraft_i_id = aircraft_list[i].id
+                aircraft_j_id = aircraft_list[j].id
+                separation_i_before_j = self.instance.get_separation(i, j)  # Time needed if i lands before j
+                separation_j_before_i = self.instance.get_separation(j, i)  # Time needed if j lands before i
 
-                delta_ij = self.variables['delta'][(id_i, id_j)]
-                x_i = self.variables['x'][id_i]
-                x_j = self.variables['x'][id_j]
+                # Get the relevant variables
+                ordering_variable = self.variables['delta'][(aircraft_i_id, aircraft_j_id)]
+                landing_time_i = self.variables['x'][aircraft_i_id]
+                landing_time_j = self.variables['x'][aircraft_j_id]
 
                 if self.num_runways == 1:
-                    # Single runway: one ordering must be respected
-                    # If delta_ij = 1 (i before j): x_j >= x_i + S_ij
+                    # ===== SINGLE RUNWAY CASE =====
+                    # Both aircraft use the same runway, so separation always applies
+
+                    # CONSTRAINT 1: If ordering_variable = 1 (i lands before j)
+                    # Then: landing_time_j ≥ landing_time_i + separation_i_before_j
+                    # Using Big-M: landing_time_j ≥ landing_time_i + separation - Big_M * (1 - ordering_variable)
+                    # When ordering_variable = 1: landing_time_j ≥ landing_time_i + separation (enforced!)
+                    # When ordering_variable = 0: landing_time_j ≥ landing_time_i + separation - Big_M (inactive, always true)
                     self.model += (
-                        x_j >= x_i + sep_ij - self.big_m * (1 - delta_ij),
-                        f"Sep_{id_i}_before_{id_j}"
+                        landing_time_j >= landing_time_i + separation_i_before_j - self.big_m * (1 - ordering_variable),
+                        f"Separation_if_aircraft_{aircraft_i_id}_before_{aircraft_j_id}"
                     )
 
-                    # If delta_ij = 0 (j before i): x_i >= x_j + S_ji
+                    # CONSTRAINT 2: If ordering_variable = 0 (j lands before i)
+                    # Then: landing_time_i ≥ landing_time_j + separation_j_before_i
+                    # Using Big-M: landing_time_i ≥ landing_time_j + separation - Big_M * ordering_variable
+                    # When ordering_variable = 0: landing_time_i ≥ landing_time_j + separation (enforced!)
+                    # When ordering_variable = 1: landing_time_i ≥ landing_time_j + separation - Big_M (inactive, always true)
                     self.model += (
-                        x_i >= x_j + sep_ji - self.big_m * delta_ij,
-                        f"Sep_{id_j}_before_{id_i}"
+                        landing_time_i >= landing_time_j + separation_j_before_i - self.big_m * ordering_variable,
+                        f"Separation_if_aircraft_{aircraft_j_id}_before_{aircraft_i_id}"
                     )
 
                 else:
-                    # Multiple runways: only enforce if on same runway
-                    z_ij = self.variables['z'][(id_i, id_j)]
+                    # ===== MULTIPLE RUNWAYS CASE =====
+                    # Separation only matters if BOTH aircraft are on the SAME runway
+                    # We use the "same runway" variable z to check this
 
-                    # If z_ij = 1 and delta_ij = 1: x_j >= x_i + S_ij
+                    same_runway_variable = self.variables['z'][(aircraft_i_id, aircraft_j_id)]
+
+                    # CONSTRAINT 1: If same_runway = 1 AND ordering_variable = 1
+                    # Then: landing_time_j ≥ landing_time_i + separation_i_before_j
+                    # Using Big-M: constraint is active only when BOTH are 1
+                    # Formula: landing_time_j ≥ landing_time_i + separation - Big_M * (2 - same_runway - ordering_variable)
+                    # When both = 1: (2 - 1 - 1) = 0, so constraint is fully active
+                    # When either = 0: multiplier ≥ 1, so Big_M makes constraint inactive
                     self.model += (
-                        x_j >= x_i + sep_ij - self.big_m * (2 - z_ij - delta_ij),
-                        f"Sep_{id_i}_before_{id_j}"
+                        landing_time_j >= landing_time_i + separation_i_before_j - self.big_m * (2 - same_runway_variable - ordering_variable),
+                        f"Separation_if_aircraft_{aircraft_i_id}_before_{aircraft_j_id}"
                     )
 
-                    # If z_ij = 1 and delta_ij = 0: x_i >= x_j + S_ji
+                    # CONSTRAINT 2: If same_runway = 1 AND ordering_variable = 0
+                    # Then: landing_time_i ≥ landing_time_j + separation_j_before_i
+                    # Formula: landing_time_i ≥ landing_time_j + separation - Big_M * (1 + ordering_variable - same_runway)
+                    # When same_runway = 1 and ordering_variable = 0: (1 + 0 - 1) = 0, constraint active
+                    # Otherwise: multiplier makes constraint inactive
                     self.model += (
-                        x_i >= x_j + sep_ji - self.big_m * (1 + delta_ij - z_ij),
-                        f"Sep_{id_j}_before_{id_i}"
+                        landing_time_i >= landing_time_j + separation_j_before_i - self.big_m * (1 + ordering_variable - same_runway_variable),
+                        f"Separation_if_aircraft_{aircraft_j_id}_before_{aircraft_i_id}"
                     )
 
     def _add_runway_assignment_constraints(self):
@@ -438,26 +560,3 @@ class AircraftLandingModel:
         except Exception as e:
             print(f"Error extracting solution: {e}")
             return None
-
-
-if __name__ == "__main__":
-    # Test the model
-    from .data_loader import DataLoader
-
-    print("Testing AircraftLandingModel...")
-
-    # Create sample instance
-    instance = DataLoader.create_sample_instance(num_aircraft=5)
-
-    # Build and solve model
-    model = AircraftLandingModel(instance, num_runways=1)
-    solution = model.solve(time_limit=60, verbose=True)
-
-    if solution:
-        print(f"\nSolution found!")
-        print(f"Landing times:")
-        for aid in sorted(solution.landing_times.keys()):
-            print(f"  Aircraft {aid}: {solution.landing_times[aid]:.2f}")
-        print(f"Total cost: {solution.objective_value:.2f}")
-    else:
-        print("No solution found!")

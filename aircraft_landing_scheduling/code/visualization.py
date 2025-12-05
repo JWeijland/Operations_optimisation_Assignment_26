@@ -523,26 +523,3 @@ class ResultVisualizer:
             plt.show()
 
         plt.close()
-
-
-if __name__ == "__main__":
-    # Test visualization
-    from .data_loader import DataLoader
-    from .heuristic import GreedyHeuristic
-
-    print("Testing Visualization Module...")
-
-    # Create sample instance
-    instance = DataLoader.create_sample_instance(num_aircraft=8)
-
-    # Solve
-    heuristic = GreedyHeuristic(instance, num_runways=2)
-    solution = heuristic.solve()
-
-    # Visualize
-    viz = ResultVisualizer(output_dir="test_figures")
-    viz.plot_gantt_chart(instance, solution,
-                        title="Test Landing Schedule")
-    viz.plot_cost_breakdown(instance, solution)
-
-    print("Visualization test completed!")

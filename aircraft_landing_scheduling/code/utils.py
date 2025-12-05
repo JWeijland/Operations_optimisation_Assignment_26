@@ -14,6 +14,16 @@ from tabulate import tabulate
 from .data_loader import ProblemInstance, Aircraft
 from .model import Solution
 
+# Try to import openpyxl for Excel export (optional)
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils.dataframe import dataframe_to_rows
+    EXCEL_AVAILABLE = True
+except ImportError:
+    EXCEL_AVAILABLE = False
+    print("Note: openpyxl not installed. Excel export will be skipped. Install with: pip install openpyxl")
+
 
 def format_time(seconds: float) -> str:
     """
@@ -349,9 +359,11 @@ def export_detailed_solution_excel(
         filepath: Output file path (Excel .xlsx)
         solution_type: Type of solution (e.g., "Heuristic", "Optimal")
     """
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils.dataframe import dataframe_to_rows
+    # Check if openpyxl is available
+    if not EXCEL_AVAILABLE:
+        print(f"⚠ Skipping Excel export to {filepath} - openpyxl not installed")
+        print("  Install with: pip install openpyxl")
+        return
 
     # Prepare data rows
     rows = []
@@ -708,34 +720,3 @@ def compare_solutions(
         df = df.sort_values('Time (s)')
 
     return df
-
-
-if __name__ == "__main__":
-    # Test utilities
-    from .data_loader import DataLoader
-    from .heuristic import GreedyHeuristic
-
-    print("Testing Utility Functions...")
-
-    # Create sample instance and solution
-    instance = DataLoader.create_sample_instance(num_aircraft=5)
-    heuristic = GreedyHeuristic(instance, num_runways=1)
-    solution = heuristic.solve()
-
-    # Test functions
-    print("\n1. Solution Summary:")
-    summary = create_solution_summary(instance, solution)
-    print(json.dumps(summary, indent=2, default=str))
-
-    print("\n2. Detailed Solution:")
-    print_solution_details(instance, solution, verbose=True)
-
-    print("\n3. Solution Validation:")
-    is_valid, violations = validate_solution(instance, solution)
-    print(f"Valid: {is_valid}")
-    if violations:
-        print("Violations:")
-        for v in violations:
-            print(f"  - {v}")
-
-    print("\nUtility functions test completed!")
