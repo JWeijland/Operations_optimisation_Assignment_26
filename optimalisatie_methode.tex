@@ -1,0 +1,264 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[dutch]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\geometry{margin=2.5cm}
+
+\title{Aircraft Landing Scheduling\\Optimalisatiemethode}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Inleiding}
+
+Dit document beschrijft de optimalisatiemethode voor het Aircraft Landing Scheduling probleem, gebaseerd op de formulering van Beasley et al. (2000) en geïmplementeerd met Mixed Integer Programming (MIP).
+
+\section{Probleembeschrijving}
+
+Het doel is om landingstijden voor vliegtuigen te bepalen die:
+\begin{itemize}
+    \item De totale kosten van afwijkingen van voorkeurstijden minimaliseren
+    \item Veiligheidsafstanden tussen landingen respecteren
+    \item Binnen tijdvensters van elk vliegtuig blijven
+    \item Bij meerdere runways, vliegtuigen optimaal over runways verdelen
+\end{itemize}
+
+\section{Notatie}
+
+\subsection{Indices}
+\begin{itemize}
+    \item $i, j \in \{1, \ldots, P\}$: vliegtuigindex
+    \item $r \in \{1, \ldots, R\}$: runway index
+\end{itemize}
+
+\subsection{Parameters}
+\begin{itemize}
+    \item $P$: aantal vliegtuigen
+    \item $R$: aantal runways
+    \item $E_i$: vroegste landingstijd voor vliegtuig $i$ (earliest time)
+    \item $L_i$: laatste landingstijd voor vliegtuig $i$ (latest time)
+    \item $T_i$: target (voorkeur) landingstijd voor vliegtuig $i$
+    \item $g_i \geq 0$: penalty kosten per tijdseenheid voor vroeg landen van vliegtuig $i$
+    \item $h_i \geq 0$: penalty kosten per tijdseenheid voor laat landen van vliegtuig $i$
+    \item $S_{ij} \geq 0$: vereiste separatietijd tussen vliegtuig $i$ en $j$ wanneer beide op dezelfde runway landen (waarbij $i$ voor $j$ landt)
+    \item $s_{ij} \geq 0$: vereiste separatietijd tussen vliegtuig $i$ en $j$ wanneer ze op verschillende runways landen
+    \item $M$: Big-M constante voor disjunctieve constraints
+\end{itemize}
+
+\textbf{Opmerking:} Het tijdvenster voor vliegtuig $i$ is $[E_i, L_i]$ met $E_i \leq T_i \leq L_i$.
+
+\subsection{Beslissingsvariabelen}
+\begin{itemize}
+    \item $x_i \in \mathbb{R}^+$: landingstijd van vliegtuig $i$
+    \item $\alpha_i \in \mathbb{R}^+$: tijd dat vliegtuig $i$ vroeger landt dan $T_i$ (early deviation)
+    \item $\beta_i \in \mathbb{R}^+$: tijd dat vliegtuig $i$ later landt dan $T_i$ (late deviation)
+    \item $\delta_{ij} \in \{0,1\}$: 1 als vliegtuig $i$ voor $j$ landt, 0 anders
+    \item $y_{ir} \in \{0,1\}$: 1 als vliegtuig $i$ op runway $r$ landt, 0 anders (alleen bij meerdere runways)
+    \item $z_{ij} \in \{0,1\}$: 1 als vliegtuig $i$ en $j$ op dezelfde runway landen, 0 anders (alleen bij meerdere runways)
+\end{itemize}
+
+\subsection{Hulpverzamelingen}
+\begin{itemize}
+    \item $U$: verzameling van vliegtuigparen $(i,j)$ met overlappende tijdvensters
+    \item $V$: verzameling van vliegtuigparen $(i,j)$ waarbij $i$ definitief voor $j$ landt, maar separatie niet automatisch voldaan is
+    \item $W$: verzameling van vliegtuigparen $(i,j)$ waarbij $i$ definitief voor $j$ landt en separatie automatisch voldaan is
+\end{itemize}
+
+Deze verzamelingen worden gedefinieerd als:
+\begin{align}
+W &= \{(i,j) \mid L_i < E_j \text{ en } L_i + S_{ij} \leq E_j\} \\
+V &= \{(i,j) \mid L_i < E_j \text{ en } L_i + S_{ij} > E_j\} \\
+U &= \{(i,j) \mid \text{tijdvensters overlappen}\}
+\end{align}
+
+\section{Optimalisatiemodel}
+
+\subsection{Objectieffunctie}
+
+Minimaliseer de totale kosten van afwijkingen van de target tijden:
+
+\begin{equation}
+\min \quad Z = \sum_{i=1}^{P} \left( g_i \cdot \alpha_i + h_i \cdot \beta_i \right)
+\end{equation}
+
+\textbf{Uitleg:} Voor elk vliegtuig $i$ betalen we $g_i$ per tijdseenheid als het vroeg landt ($\alpha_i > 0$) en $h_i$ per tijdseenheid als het laat landt ($\beta_i > 0$). De optimalisatie zoekt landingstijden die deze totale kosten minimaliseren.
+
+\subsection{Constraints}
+
+\subsubsection{Tijdvenster constraints}
+Elk vliegtuig moet binnen zijn tijdvenster landen:
+
+\begin{equation}
+E_i \leq x_i \leq L_i \quad \forall i \in \{1, \ldots, P\}
+\end{equation}
+
+\subsubsection{Target deviation constraints}
+Koppel de landingstijd aan vroeg/laat afwijkingen:
+
+\begin{equation}
+x_i = T_i - \alpha_i + \beta_i \quad \forall i \in \{1, \ldots, P\}
+\end{equation}
+
+\textbf{Uitleg:}
+\begin{itemize}
+    \item Als $x_i = T_i$: dan $\alpha_i = \beta_i = 0$ (precies op tijd)
+    \item Als $x_i < T_i$: dan $\alpha_i = T_i - x_i$ en $\beta_i = 0$ (vroeg)
+    \item Als $x_i > T_i$: dan $\alpha_i = 0$ en $\beta_i = x_i - T_i$ (laat)
+\end{itemize}
+
+\subsubsection{Ordering constraints}
+Voor elk paar vliegtuigen moet één van beide eerst landen:
+
+\begin{equation}
+\delta_{ij} + \delta_{ji} = 1 \quad \forall i,j \in \{1, \ldots, P\}, \; j > i
+\end{equation}
+
+\textbf{Uitleg:} Als $\delta_{ij} = 1$ dan landt $i$ voor $j$; als $\delta_{ij} = 0$ dan landt $j$ voor $i$.
+
+\subsubsection{Separatie constraints (enkele runway)}
+
+Voor paren $(i,j) \in W$: geen constraints nodig (separatie automatisch voldaan)
+
+Voor paren $(i,j) \in V$:
+\begin{align}
+\delta_{ij} &= 1 \\
+x_j &\geq x_i + S_{ij}
+\end{align}
+
+Voor paren $(i,j) \in U$ (overlappende tijdvensters):
+\begin{equation}
+x_j \geq x_i + S_{ij} \cdot \delta_{ij} - (L_i - E_j) \cdot \delta_{ji}
+\end{equation}
+
+\textbf{Uitleg Big-M methode:}
+\begin{itemize}
+    \item Als $\delta_{ij} = 1$ (i voor j): $x_j \geq x_i + S_{ij}$ (separatie afgedwongen)
+    \item Als $\delta_{ij} = 0$ (j voor i): $x_j \geq x_i + S_{ij} - (L_i - E_j)$ (constraint inactief)
+\end{itemize}
+
+\subsubsection{Runway assignment constraints (meerdere runways)}
+
+Elk vliegtuig wordt aan precies één runway toegewezen:
+\begin{equation}
+\sum_{r=1}^{R} y_{ir} = 1 \quad \forall i \in \{1, \ldots, P\}
+\end{equation}
+
+Indicator voor dezelfde runway:
+\begin{align}
+z_{ij} &= z_{ji} \quad \forall i,j \in \{1, \ldots, P\}, \; j > i \\
+z_{ij} &\geq y_{ir} + y_{jr} - 1 \quad \forall i,j, \; j > i, \; \forall r \in \{1, \ldots, R\}
+\end{align}
+
+\textbf{Uitleg:} Als beide vliegtuigen op dezelfde runway $r$ landen (d.w.z. $y_{ir} = y_{jr} = 1$), dan moet $z_{ij} = 1$.
+
+\subsubsection{Separatie constraints (meerdere runways)}
+
+Voor paren $(i,j) \in V$:
+\begin{equation}
+x_j \geq x_i + S_{ij} \cdot z_{ij} + s_{ij} \cdot (1 - z_{ij})
+\end{equation}
+
+Voor paren $(i,j) \in U$:
+\begin{equation}
+x_j \geq x_i + S_{ij} \cdot z_{ij} + s_{ij} \cdot (1 - z_{ij}) - \left(L_i + \max(S_{ij}, s_{ij}) - E_j\right) \cdot \delta_{ji}
+\end{equation}
+
+\textbf{Uitleg:}
+\begin{itemize}
+    \item Als $z_{ij} = 1$ (zelfde runway): separatie $S_{ij}$ wordt gebruikt
+    \item Als $z_{ij} = 0$ (verschillende runways): separatie $s_{ij}$ wordt gebruikt
+    \item De Big-M term activeert/deactiveert de constraint op basis van $\delta_{ji}$
+\end{itemize}
+
+\subsubsection{Variabele grenzen}
+\begin{align}
+0 &\leq \alpha_i \leq T_i - E_i \quad \forall i \\
+0 &\leq \beta_i \leq L_i - T_i \quad \forall i \\
+\delta_{ij} &\in \{0,1\} \quad \forall i \neq j \\
+y_{ir} &\in \{0,1\} \quad \forall i, r \quad \text{(meerdere runways)} \\
+z_{ij} &\in \{0,1\} \quad \forall i \neq j \quad \text{(meerdere runways)}
+\end{align}
+
+\section{Vergelijking met Beasley et al. (2000)}
+
+Dit model komt overeen met het paper ``Scheduling Aircraft Landings—The Static Case'' van Beasley et al. (2000):
+
+\subsection{Overeenkomsten}
+\begin{itemize}
+    \item \textbf{Formulering:} Identieke MIP formulering met binaire ordering variabelen $\delta_{ij}$
+    \item \textbf{Objectief:} Zelfde objectieffunctie voor minimalisatie van gewogen afwijkingen
+    \item \textbf{Constraints:}
+    \begin{itemize}
+        \item Tijdvenster constraints met eindige grenzen
+        \item Big-M methode voor disjunctieve separatie constraints
+        \item Complete separation tussen alle paren vliegtuigen
+    \end{itemize}
+    \item \textbf{Meerdere runways:} Uitbreiding met runway assignment variabelen zoals beschreven in het paper
+\end{itemize}
+
+\subsection{Implementatiedetails}
+\begin{itemize}
+    \item \textbf{Solver:} CBC (COIN-OR Branch and Cut) wordt gebruikt via PuLP (Python). De code ondersteunt ook Gurobi als alternatief.
+    \item \textbf{Separatie:}
+    \begin{itemize}
+        \item Plane-dependent separatie tijden $S_{ij}$ (niet alleen class-dependent)
+        \item Voor meerdere runways: $s_{ij} = 0$ (simultane landingen toegestaan op parallelle runways)
+    \end{itemize}
+    \item \textbf{Versterkingen:}
+    \begin{itemize}
+        \item LP relaxatie wordt versterkt met additionele valid inequalities
+        \item Time window tightening op basis van heuristische upper bounds
+        \item Restart strategie bij vinden van betere oplossingen
+    \end{itemize}
+\end{itemize}
+
+\subsection{Belangrijke verschillen met standaard benaderingen}
+\begin{enumerate}
+    \item \textbf{Realistische latest times:} Expliciete eindige $L_i$ gebaseerd op brandstofbeperkingen (veel papers gebruiken oneindig grote $L_i$)
+    \item \textbf{Complete separation:} Separatie tussen alle paren, niet alleen opeenvolgende vliegtuigen
+    \item \textbf{Plane-specific data:} Alle vliegtuigen kunnen verschillende parameters hebben (niet gegroepeerd in classes)
+\end{enumerate}
+
+\section{Complexiteit}
+
+\begin{itemize}
+    \item \textbf{Type probleem:} NP-hard mixed integer programming probleem
+    \item \textbf{Variabelen:}
+    \begin{itemize}
+        \item Enkele runway: $3P$ continue + $P(P-1)$ binaire variabelen
+        \item Meerdere runways: $3P$ continue + $2P(P-1) + PR$ binaire variabelen
+    \end{itemize}
+    \item \textbf{Constraints:}
+    \begin{itemize}
+        \item Enkele runway: $O(P^2)$
+        \item Meerdere runways: $O(P^2 \cdot R)$
+    \end{itemize}
+\end{itemize}
+
+\section{Oplosmethode}
+
+Het model wordt opgelost met:
+\begin{enumerate}
+    \item \textbf{Heuristische upper bound:} Greedy constructie op basis van target tijden
+    \item \textbf{Window tightening:} Verkleinen van tijdvensters op basis van upper bound
+    \item \textbf{LP-based branch-and-bound:} MIP solver (CBC of Gurobi) met:
+    \begin{itemize}
+        \item Versterkte LP relaxatie
+        \item Restart strategie bij vinden van betere oplossingen
+        \item Cut generation en preprocessing
+    \end{itemize}
+\end{enumerate}
+
+\section{Conclusie}
+
+Deze implementatie volgt de methode van Beasley et al. (2000) en is geschikt voor het statische aircraft landing probleem met realistische operationele constraints. Het model kan problemen met tot 50 vliegtuigen en 4 runways oplossen tot optimaliteit.
+
+\end{document}

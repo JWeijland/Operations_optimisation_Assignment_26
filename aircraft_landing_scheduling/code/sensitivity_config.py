@@ -224,7 +224,8 @@ def create_default_config() -> SensitivityAnalysisConfig:
 
 
 def create_extreme_rush_config() -> SensitivityAnalysisConfig:
-    """Create configuration with extreme rush hour (90% concentration)."""
+    """Create configuration with extreme rush hour (90% concentration).
+    NOTE: Aircraft mix ratio's blijven vast zoals default (30/60/10)."""
     return SensitivityAnalysisConfig(
         experiment_name="extreme_rush_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -235,9 +236,9 @@ def create_extreme_rush_config() -> SensitivityAnalysisConfig:
             probability=0.9  # 90% in rush hour!
         ),
         aircraft_mix=AircraftMixConfig(
-            heavy_ratio=0.35,  # More heavy aircraft
-            medium_ratio=0.55,
-            light_ratio=0.10
+            heavy_ratio=0.30,  # FIXED: Same as default
+            medium_ratio=0.60,  # FIXED: Same as default
+            light_ratio=0.10   # FIXED: Same as default
         )
     )
 
@@ -257,7 +258,8 @@ def create_no_rush_config() -> SensitivityAnalysisConfig:
 
 
 def create_heavy_traffic_config() -> SensitivityAnalysisConfig:
-    """Create configuration focused on heavy aircraft."""
+    """Create configuration focused on heavy aircraft.
+    NOTE: Aircraft mix ratio's blijven vast zoals default (30/60/10)."""
     return SensitivityAnalysisConfig(
         experiment_name="heavy_traffic_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -268,9 +270,9 @@ def create_heavy_traffic_config() -> SensitivityAnalysisConfig:
             probability=0.6
         ),
         aircraft_mix=AircraftMixConfig(
-            heavy_ratio=0.50,  # 50% heavy aircraft
-            medium_ratio=0.40,
-            light_ratio=0.10
+            heavy_ratio=0.30,  # FIXED: Same as default
+            medium_ratio=0.60,  # FIXED: Same as default
+            light_ratio=0.10   # FIXED: Same as default
         )
     )
 
