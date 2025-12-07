@@ -104,7 +104,8 @@ def create_schiphol_evening_rush(
     heavy_ratio: float = 0.3,
     medium_ratio: float = 0.6,
     light_ratio: float = 0.1,
-    seed: int = 42
+    seed: int = 42,
+    peak_hour_probability: float = 0.5
 ) -> ProblemInstance:
     """
     Create realistic Schiphol evening rush hour scenario (18:00-20:00).
@@ -117,6 +118,9 @@ def create_schiphol_evening_rush(
         medium_ratio: Proportion of medium aircraft
         light_ratio: Proportion of light aircraft
         seed: Random seed for reproducibility
+        peak_hour_probability: Probability that aircraft arrives in peak hour (0.0-1.0)
+                               0.5 = 50% in peak hour (normal)
+                               0.9 = 90% in peak hour (extreme congestion!)
 
     Returns:
         ProblemInstance with realistic Schiphol data
@@ -152,7 +156,8 @@ def create_schiphol_evening_rush(
 
         # Scheduled Time of Arrival (STA) - peak hour distribution
         # More arrivals during 19:00-19:30 to create congestion
-        if np.random.random() < 0.5:  # 50% chance of peak hour (increased!)
+        # User can control this with peak_hour_probability parameter
+        if np.random.random() < peak_hour_probability:
             sta = np.random.uniform(60, 90)  # Peak: minute 60-90 (19:00-19:30)
         else:
             sta = np.random.uniform(0, 120)  # Rest spread over 2 hours

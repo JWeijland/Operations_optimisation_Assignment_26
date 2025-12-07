@@ -1,0 +1,30 @@
+experiment_name: no_rush_sensitivity
+aircraft_counts:
+- 10
+- 20
+- 30
+- 40
+runway_counts:
+- 1
+- 2
+- 3
+- 4
+rush_hour:
+  start_minute: 60.0
+  end_minute: 90.0
+  probability: 0.25
+aircraft_mix:
+  heavy_ratio: 0.3
+  medium_ratio: 0.6
+  light_ratio: 0.1
+time_window:
+  total_minutes: 120.0
+  base_time_label: '18:00'
+solver:
+  time_limit: 300
+  random_seed: 42
+replications: 1
+output:
+  output_dir: results/sensitivity_analysis
+  save_detailed_results: true
+  generate_heatmaps: true

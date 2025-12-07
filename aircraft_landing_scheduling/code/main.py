@@ -85,16 +85,19 @@ def show_interactive_menu():
     print(f"  5. Custom Sample Instance")
     print(f"     Generate random instance with custom parameters")
     print()
-    print(f"  6. Load Custom File")
+    print(f"  6. Custom Schiphol Scenario with Peak Hour Control")
+    print(f"     Choose your own peak hour concentration (stress test!)")
+    print()
+    print(f"  7. Load Custom File")
     print(f"     Load instance from existing data file")
     print()
 
     # Get user choice
     while True:
-        choice = input("Enter your choice (1-6): ").strip()
-        if choice in ['1', '2', '3', '4', '5', '6']:
+        choice = input("Enter your choice (1-7): ").strip()
+        if choice in ['1', '2', '3', '4', '5', '6', '7']:
             break
-        print("Invalid choice. Please enter a number between 1 and 6.")
+        print("Invalid choice. Please enter a number between 1 and 7.")
 
     # Process choice
     if choice in SCENARIOS:
@@ -150,6 +153,67 @@ def show_interactive_menu():
         return instance, instance_name, num_runways, str(output_dir)
 
     elif choice == '6':
+        # Custom Schiphol scenario with peak hour control
+        print(f"\n{'='*70}")
+        print(f"Custom Schiphol Scenario - Peak Hour Control")
+        print(f"{'='*70}")
+        print()
+        print("Control how many aircraft land during peak hour (19:00-19:30)")
+        print("Higher percentage = More congestion = Harder problem!")
+        print()
+        print("Examples:")
+        print("  50% = Normal traffic (default)")
+        print("  70% = Busy evening")
+        print("  90% = Extreme rush hour (very hard!)")
+        print()
+
+        # Get parameters
+        num_aircraft = int(input("Number of aircraft (default 30): ") or "30")
+        num_runways = int(input("Number of runways (default 1): ") or "1")
+
+        while True:
+            peak_input = input("Peak hour percentage - aircraft in 19:00-19:30 (default 50): ").strip() or "50"
+            try:
+                peak_percentage = int(peak_input)
+                if 0 <= peak_percentage <= 100:
+                    break
+                print("Please enter a percentage between 0 and 100")
+            except ValueError:
+                print("Please enter a valid number")
+
+        seed = int(input("Random seed for reproducibility (default 42): ") or "42")
+
+        print(f"\n✓ Generating scenario with {peak_percentage}% peak concentration...")
+
+        # Import the scenario generator
+        from code.schiphol_scenarios import create_schiphol_evening_rush
+
+        # Generate custom scenario
+        scenario_name = f"custom_peak{peak_percentage}_aircraft{num_aircraft}_r{num_runways}"
+        instance = create_schiphol_evening_rush(
+            num_aircraft=num_aircraft,
+            num_runways=num_runways,
+            scenario_name=scenario_name,
+            heavy_ratio=0.30,
+            medium_ratio=0.60,
+            light_ratio=0.10,
+            seed=seed,
+            peak_hour_probability=peak_percentage / 100.0  # Convert to 0.0-1.0
+        )
+
+        instance_name = scenario_name
+        output_dir = Path("results") / scenario_name
+
+        # Clean old results
+        if output_dir.exists():
+            clean = input(f"Clean previous results in {output_dir}? (y/n): ").strip().lower()
+            if clean == 'y':
+                shutil.rmtree(output_dir)
+                print(f"✓ Cleaned: {output_dir}")
+
+        return instance, instance_name, num_runways, str(output_dir)
+
+    elif choice == '7':
         # Load from file
         print(f"\n{'='*70}")
         print(f"Load Custom File")

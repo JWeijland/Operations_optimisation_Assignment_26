@@ -1,132 +1,263 @@
-# Operations Optimisation Assignment
+# Aircraft Landing Scheduling - Optimalisatie Project
 
-Aircraft Landing Scheduling Problem - Implementatie voor AE vakken
+Dit project optimaliseert landingsschema's voor vliegtuigen op Schiphol met als doel de totale kosten te minimaliseren.
 
-## 🎯 Snelstart
+## 📁 Project Structuur
 
-### Methode 1: Met het run script (Makkelijkst!)
+```
+.
+├── run_scenarios.py              # Run de 4 vaste scenarios
+├── sensitivity_runner.py         # Run sensitivity analysis
+├── scenarios/
+│   └── scenario_definitions.py   # Definitie van de 4 scenarios
+├── aircraft_landing_scheduling/
+│   ├── code/                     # Core optimalisatie code
+│   │   ├── solver.py            # Heuristiek + MILP solver
+│   │   ├── model.py             # MILP formulering
+│   │   ├── heuristic.py         # Greedy heuristiek
+│   │   ├── data_loader.py       # Data inlezen
+│   │   └── visualization.py     # Gantt charts en plots
+│   └── data/                     # Scenario data files
+│       ├── schiphol_1runway_light.txt
+│       ├── schiphol_1runway_heavy.txt
+│       ├── schiphol_2runways_medium.txt
+│       └── schiphol_3runways_heavy.txt
+├── results/                      # Output (wordt aangemaakt)
+└── docs/
+    ├── HOE_WERKT_HET.md         # Uitleg hoe de methoden werken
+    └── TECHNISCHE_UITLEG_MODEL.tex  # Wiskundige formulering
+```
+
+## 🚀 Quick Start
+
+### 1. Run de 4 Vaste Scenarios
+
+**Interactief menu:**
+```bash
+python run_scenarios.py
+```
+
+**Specifiek scenario:**
+```bash
+python run_scenarios.py --scenario 1   # Single runway, light traffic
+python run_scenarios.py --scenario 2   # Single runway, heavy traffic
+python run_scenarios.py --scenario 3   # Two runways, medium traffic
+python run_scenarios.py --scenario 4   # Three runways, heavy traffic
+```
+
+**Alle scenarios:**
+```bash
+python run_scenarios.py --all
+```
+
+**Lijst scenarios:**
+```bash
+python run_scenarios.py --list
+```
+
+### 2. Run Sensitivity Analysis
+
+Test verschillende combinaties van vliegtuigen en runways:
 
 ```bash
-cd "/Users/jelleweijland/Documents/AE Vakken/Operations_Assignment/Operations_optimisation_Assignment_26"
-./RUN.sh
+# Quick test (20, 30 aircraft × 1, 2 runways)
+python sensitivity_runner.py --quick-test
+
+# Volledig (20, 30, 40, 50 aircraft × 1, 2, 3, 4 runways)
+python sensitivity_runner.py
+
+# Custom
+python sensitivity_runner.py \
+    --aircraft 20 30 40 \
+    --runways 1 2 3 \
+    --rush-prob 0.7 \
+    --name my_analysis
 ```
 
-### Methode 2: Handmatig
+## 📊 De 4 Scenarios
+
+### Scenario 1: Single Runway - Light Traffic
+- **Aircraft**: 20
+- **Runways**: 1
+- **Traffic**: Off-peak
+- **Gebruik**: Toon baseline performance
+
+### Scenario 2: Single Runway - Heavy Traffic
+- **Aircraft**: 35
+- **Runways**: 1
+- **Traffic**: Peak hour
+- **Gebruik**: Toon impact van congestie op 1 runway
+
+### Scenario 3: Two Runways - Medium Traffic
+- **Aircraft**: 30
+- **Runways**: 2
+- **Traffic**: Medium load
+- **Gebruik**: Toon voordeel van 2de runway
+
+### Scenario 4: Three Runways - Heavy Traffic
+- **Aircraft**: 50
+- **Runways**: 3
+- **Traffic**: Full rush hour
+- **Gebruik**: Toon schaalbaarheid met 3 runways
+
+## 📈 Output
+
+Na het runnen van scenarios vind je:
+
+### Per Scenario:
+```
+results/scenario_X/
+├── figures/
+│   ├── scenario_X_heuristic_gantt.png     # Gantt chart heuristiek
+│   ├── scenario_X_optimal_gantt.png       # Gantt chart optimaal
+│   ├── scenario_X_comparison.png          # Vergelijking beide methoden
+│   └── scenario_X_cost_breakdown.png      # Kostenverdeling
+└── tables/
+    ├── scenario_X_heuristic.csv           # Heuristiek oplossing
+    ├── scenario_X_optimal.csv             # Optimale oplossing
+    ├── scenario_X_heuristic.xlsx          # Excel versie
+    └── scenario_X_optimal.xlsx
+```
+
+### Sensitivity Analysis:
+```
+results/[experiment_name]/
+├── sensitivity_results_YYYYMMDD_HHMMSS.csv   # Alle resultaten
+└── heatmaps/
+    ├── optimal_cost_heatmap.png              # Hoofdresultaat!
+    └── gap_percent_heatmap.png               # Kwaliteit heuristiek
+```
+
+## 🔧 Hoe het werkt
+
+Het project gebruikt **twee oplossingsmethoden**:
+
+### 1. Greedy Heuristiek (Snel)
+- Plant vliegtuigen één voor één
+- Kiest steeds beste optie voor huidig vliegtuig
+- **Tijd**: 0.01 - 0.1 seconden
+- **Kwaliteit**: 5-15% slechter dan optimaal
+
+### 2. MILP Solver (Optimaal)
+- Zoekt globaal beste oplossing
+- Gebruikt branch-and-bound algoritme
+- **Tijd**: 10 - 50 seconden
+- **Kwaliteit**: Optimaal (binnen time limit)
+
+Zie `docs/HOE_WERKT_HET.md` voor uitgebreide uitleg.
+
+## 📊 Sensitivity Analysis
+
+De sensitivity analysis test systematisch verschillende combinaties:
+
+**Parameters:**
+- `--aircraft`: Lijst van aantallen vliegtuigen (bijv. `20 30 40 50`)
+- `--runways`: Lijst van aantallen runways (bijv. `1 2 3 4`)
+- `--rush-prob`: Percentage in rush hour (0.0 - 1.0)
+- `--time-limit`: Tijd per scenario in seconden
+- `--name`: Experiment naam
+
+**Voorbeeld:**
+```bash
+# Test impact rush hour
+python sensitivity_runner.py --rush-prob 0.3 --name low_rush
+python sensitivity_runner.py --rush-prob 0.7 --name high_rush
+
+# Vergelijk de heatmaps!
+```
+
+## 📝 Resultaten Interpreteren
+
+### Gantt Chart
+- **X-as**: Tijd (minuten vanaf 18:00)
+- **Y-as**: Landingsbanen
+- **Blokken**: Vliegtuigen met landingstijd
+- **Kleur**: Vroeg (blauw), On-time (groen), Laat (rood)
+
+### Cost Heatmap
+- **X-as**: Aantal runways
+- **Y-as**: Aantal vliegtuigen
+- **Kleur**: Kosten (EUR) - Rood = hoog, Geel = laag
+- **Trend**: Kosten dalen bij meer runways
+
+### Gap Heatmap
+- **Waarde**: (Heuristiek - Optimaal) / Optimaal × 100%
+- **Interpretatie**: Hoe goed is de heuristiek?
+- **Typisch**: 5-15% gap
+
+## 🎯 Veelgebruikte Commando's
 
 ```bash
-# Stap 1: Ga naar deze directory
-cd "/Users/jelleweijland/Documents/AE Vakken/Operations_Assignment/Operations_optimisation_Assignment_26"
+# Scenario's runnen
+python run_scenarios.py --scenario 1
+python run_scenarios.py --all
 
-# Stap 2: Activeer virtual environment
-source Operations_Guusje/bin/activate
+# Sensitivity analysis
+python sensitivity_runner.py --quick-test          # Quick (5 min)
+python sensitivity_runner.py                       # Full (30-60 min)
 
-# Stap 3: Run het programma
-python aircraft_landing_scheduling/code/main.py
+# Custom time limit
+python run_scenarios.py --scenario 2 --time-limit 100
+python sensitivity_runner.py --time-limit 100
+
+# Rush hour vergelijking
+python sensitivity_runner.py --rush-prob 0.3 --name low
+python sensitivity_runner.py --rush-prob 0.9 --name high
 ```
 
-## 📂 Project Structuur
+## 📖 Documentatie
 
-```
-Operations_optimisation_Assignment_26/
-├── RUN.sh                              # ← Run dit script!
-├── Operations_Guusje/                  # Virtual environment
-├── aircraft_landing_scheduling/        # Hoofdproject
-│   ├── code/                          # Python source code
-│   │   ├── main.py                    # Entry point met menu
-│   │   ├── model.py                   # MIP model
-│   │   ├── heuristic.py               # Greedy heuristic
-│   │   ├── solver.py                  # Solver framework
-│   │   ├── data_loader.py             # Data inlezen
-│   │   ├── visualization.py           # Grafieken maken
-│   │   ├── utils.py                   # Helper functies
-│   │   └── schiphol_scenarios.py      # Realistische scenarios
-│   ├── data/                          # Problem instances
-│   ├── requirements.txt               # Python dependencies
-│   ├── README.md                      # Gedetailleerde documentatie
-│   └── INSTALL.md                     # Installatie instructies
-├── results/                            # ← Alle output komt hier!
-│   ├── scenario_1runway_light/
-│   ├── scenario_1runway_heavy/
-│   └── ...
-└── support_documents/                  # Referentie documenten
-```
+- **HOE_WERKT_HET.md**: Simpele uitleg van de twee methoden
+- **TECHNISCHE_UITLEG_MODEL.tex**: Wiskundige formulering (LaTeX)
+- Deze README: Gebruikershandleiding
 
-## 🎮 Interactief Menu
+## ⚙️ Technische Details
 
-Bij het starten krijg je een menu:
+### Solver Settings
+- **Time limit**: 50 seconden (default)
+- **Optimality gap**: 1%
+- **Solver**: PuLP met CBC
 
-```
-======================================================================
-AIRCRAFT LANDING SCHEDULING - SCENARIO MENU
-======================================================================
+### Aircraft Types
+- **Heavy** (30%): B747, B777, A330 - Separatie 90-180s
+- **Medium** (60%): B737, A320 - Separatie 60-120s
+- **Light** (10%): Citation, Phenom - Separatie 60s
 
-Available Scenarios:
+### Cost Structure
+- **Heavy**: €100/min vroeg, €200/min laat
+- **Medium**: €60/min vroeg, €150/min laat
+- **Light**: €30/min vroeg, €80/min laat
 
-  1. Schiphol 1 Runway Light     (20 aircraft, 1 runway)
-  2. Schiphol 1 Runway Heavy     (35 aircraft, 1 runway)
-  3. Schiphol 2 Runways Medium   (30 aircraft, 2 runways)
-  4. Schiphol 3 Runways Heavy    (50 aircraft, 3 runways)
-  5. Custom Sample Instance
-  6. Load Custom File
+## 🎓 Voor je Rapport
 
-Enter your choice (1-6): _
-```
+**Aanbevolen analyses:**
 
-## 📊 Output
+1. **Run alle 4 scenarios**
+   ```bash
+   python run_scenarios.py --all
+   ```
+   → Gebruik Gantt charts en cost breakdown
 
-Elk scenario genereert:
-- **4 PNG visualisaties**: Gantt charts, vergelijking, cost breakdown
-- **2 CSV bestanden**: Gedetailleerde oplossingen (heuristic + optimal)
-- **2 Excel bestanden**: Geformatteerde oplossingen
+2. **Rush hour impact**
+   ```bash
+   python sensitivity_runner.py --rush-prob 0.3 --name low_rush
+   python sensitivity_runner.py --rush-prob 0.7 --name high_rush
+   ```
+   → Vergelijk heatmaps side-by-side
 
-Alles wordt opgeslagen in: `results/scenario_naam/`
+3. **Runway scaling**
+   ```bash
+   python sensitivity_runner.py
+   ```
+   → Analyseer diminishing returns van extra runways
 
-## ⏱️ Geschatte looptijden
+**Key metrics om te rapporteren:**
+- Optimal cost per scenario
+- Gap percentage (heuristiek vs optimaal)
+- Solve tijd (schaalbaarheid)
+- Cost reduction door extra runways
+- Rush hour impact op kosten
 
-| Scenario | Aircraft | Runways | Tijd |
-|----------|----------|---------|------|
-| 1. Light | 20 | 1 | ~10 seconden |
-| 2. Heavy | 35 | 1 | ~30 seconden |
-| 3. Medium | 30 | 2 | ~45 seconden |
-| 4. Heavy | 50 | 3 | ~1-3 minuten |
+---
 
-## 🔧 Command-line opties
-
-```bash
-# Specifiek scenario met custom tijd
-./RUN.sh --instance data/schiphol_1runway_light.txt --runways 1 --time-limit 600
-
-# Alleen heuristic (snel)
-./RUN.sh --instance sample --time-limit 5
-
-# Help
-./RUN.sh --help
-```
-
-## 📚 Meer informatie
-
-- Gedetailleerde documentatie: `aircraft_landing_scheduling/README.md`
-- Installatie instructies: `aircraft_landing_scheduling/INSTALL.md`
-- Support documenten: `support_documents/`
-
-## 🐛 Troubleshooting
-
-**Virtual environment niet gevonden:**
-```bash
-python3 -m venv Operations_Guusje
-source Operations_Guusje/bin/activate
-pip install -r aircraft_landing_scheduling/requirements.txt
-```
-
-**Module niet gevonden:**
-```bash
-source Operations_Guusje/bin/activate
-pip install -r aircraft_landing_scheduling/requirements.txt
-```
-
-**Results folder op verkeerde plek:**
-→ Zorg dat je ALTIJD vanuit deze directory (Operations_optimisation_Assignment_26) runt!
-
-## 👥 Team
-
-AE Vakken - Operations Assignment 2024
+**Gemaakt voor Operations Optimisation Assignment 2024**
