@@ -11,9 +11,14 @@ import numpy as np
 from pathlib import Path
 import time
 
-from .data_loader import ProblemInstance, DataLoader
-from .model import AircraftLandingModel, Solution
-from .heuristic import GreedyHeuristic, MultiStartGreedy
+try:
+    from .data_loader import ProblemInstance, DataLoader
+    from .model import AircraftLandingModel, Solution
+    from .heuristic import GreedyHeuristic, MultiStartGreedy
+except ImportError:
+    from data_loader import ProblemInstance, DataLoader
+    from model import AircraftLandingModel, Solution
+    from heuristic import GreedyHeuristic, MultiStartGreedy
 
 
 @dataclass

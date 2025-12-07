@@ -73,7 +73,7 @@ class SensitivityAnalysisConfig:
     random_seed: int = 42
 
     # Number of replications per scenario
-    num_replications: int = 1
+    num_replications: int = 5
 
     # Output settings
     output_dir: str = "results/sensitivity_analysis"

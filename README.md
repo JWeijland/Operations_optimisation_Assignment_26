@@ -1,263 +1,289 @@
-# Aircraft Landing Scheduling - Optimalisatie Project
+# Aircraft Landing Scheduling Optimization
 
-Dit project optimaliseert landingsschema's voor vliegtuigen op Schiphol met als doel de totale kosten te minimaliseren.
+Mixed Integer Programming (MIP) implementatie voor het Aircraft Landing Scheduling probleem, gebaseerd op Beasley et al. (2000).
 
 ## 📁 Project Structuur
 
 ```
-.
-├── run_scenarios.py              # Run de 4 vaste scenarios
-├── sensitivity_runner.py         # Run sensitivity analysis
-├── scenarios/
-│   └── scenario_definitions.py   # Definitie van de 4 scenarios
+Operations_optimisation_Assignment_26/
 ├── aircraft_landing_scheduling/
-│   ├── code/                     # Core optimalisatie code
-│   │   ├── solver.py            # Heuristiek + MILP solver
-│   │   ├── model.py             # MILP formulering
-│   │   ├── heuristic.py         # Greedy heuristiek
-│   │   ├── data_loader.py       # Data inlezen
-│   │   └── visualization.py     # Gantt charts en plots
-│   └── data/                     # Scenario data files
-│       ├── schiphol_1runway_light.txt
-│       ├── schiphol_1runway_heavy.txt
-│       ├── schiphol_2runways_medium.txt
-│       └── schiphol_3runways_heavy.txt
-├── results/                      # Output (wordt aangemaakt)
-└── docs/
-    ├── HOE_WERKT_HET.md         # Uitleg hoe de methoden werken
-    └── TECHNISCHE_UITLEG_MODEL.tex  # Wiskundige formulering
+│   └── code/                      # Core Python modules
+│       ├── data_loader.py         # Data loading en parsing
+│       ├── model.py               # MIP model (Beasley et al. 2000)
+│       ├── heuristic.py           # Greedy heuristic
+│       ├── solver.py              # High-level solver interface
+│       ├── schiphol_scenarios.py  # Scenario generator
+│       ├── sensitivity_config.py  # Sensitivity analysis configuratie
+│       ├── sensitivity_analysis.py # Sensitivity analysis module
+│       ├── utils.py               # Hulpfuncties
+│       └── visualization.py       # Gantt charts en visualisaties
+│
+├── data/                          # Scenario bestanden (3 files)
+│   ├── schiphol_1runway_heavy.txt
+│   ├── schiphol_1runway_light.txt
+│   └── schiphol_3runways_heavy.txt
+│
+├── results/                       # Resultaten
+│   ├── scenario_1runway_heavy/   # Scenario 1 resultaten
+│   ├── scenario_3runways_heavy/  # Scenario 2 resultaten
+│   └── sensitivity_analysis/     # Sensitivity analysis resultaten
+│       ├── heatmaps/             # Heatmap visualisaties
+│       └── sensitivity_results_20251207_152344.csv  # 80 scenarios × 5 reps
+│
+├── support_documents/             # Papers en assignment docs
+│
+├── run_scenarios.py               # ⭐ Runner voor 4 scenarios
+├── sensitivity_runner.py          # ⭐ Runner voor sensitivity analysis
+├── requirements.txt               # Python dependencies
+├── optimalisatie_methode.tex      # LaTeX documentatie van methode
+└── README.md                      # Deze file
 ```
 
 ## 🚀 Quick Start
 
-### 1. Run de 4 Vaste Scenarios
+### Installatie
 
-**Interactief menu:**
+```bash
+# Maak virtual environment (optioneel maar aanbevolen)
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Installeer dependencies
+pip install -r requirements.txt
+```
+
+### 1. Run de 4 Scenarios
+
 ```bash
 python run_scenarios.py
 ```
 
-**Specifiek scenario:**
-```bash
-python run_scenarios.py --scenario 1   # Single runway, light traffic
-python run_scenarios.py --scenario 2   # Single runway, heavy traffic
-python run_scenarios.py --scenario 3   # Two runways, medium traffic
-python run_scenarios.py --scenario 4   # Three runways, heavy traffic
-```
+Dit runt automatisch:
+- ✅ Scenario 1: 1 runway, heavy traffic (gebruikt bestaand data file)
+- ✅ Scenario 2: 1 runway, light traffic (gebruikt bestaand data file)
+- ✅ Scenario 3: 3 runways, heavy traffic (gebruikt bestaand data file)
+- ✅ Scenario 4: 3 runways, light traffic (gegenereerd on-the-fly)
 
-**Alle scenarios:**
-```bash
-python run_scenarios.py --all
-```
-
-**Lijst scenarios:**
-```bash
-python run_scenarios.py --list
-```
+**Output per scenario:**
+- `results/scenario_*/comparison_results.csv` - Heuristic vs Optimal
+- `results/scenario_*/gantt_*.png` - Gantt charts
+- `results/scenario_*/*_solution.csv` - Detailed schedules
 
 ### 2. Run Sensitivity Analysis
 
-Test verschillende combinaties van vliegtuigen en runways:
-
 ```bash
-# Quick test (20, 30 aircraft × 1, 2 runways)
-python sensitivity_runner.py --quick-test
-
-# Volledig (20, 30, 40, 50 aircraft × 1, 2, 3, 4 runways)
 python sensitivity_runner.py
-
-# Custom
-python sensitivity_runner.py \
-    --aircraft 20 30 40 \
-    --runways 1 2 3 \
-    --rush-prob 0.7 \
-    --name my_analysis
 ```
 
-## 📊 De 4 Scenarios
+**Configuratie** (`aircraft_landing_scheduling/code/sensitivity_config.py:76`):
+- Aircraft counts: `[20, 30, 40, 50]`
+- Runway counts: `[1, 2, 3, 4]`
+- **Replications: 5 per scenario**
+- Time limit: 50s per instance
+- **Totaal: 80 scenarios** (4×4×5)
+- **Tijd: ~60-90 minuten**
 
-### Scenario 1: Single Runway - Light Traffic
-- **Aircraft**: 20
-- **Runways**: 1
-- **Traffic**: Off-peak
-- **Gebruik**: Toon baseline performance
+**Output:**
+- `results/sensitivity_analysis/sensitivity_results_TIMESTAMP.csv` (80 rows)
+- `results/sensitivity_analysis/heatmaps/`:
+  - `optimal_cost_heatmap.png` - Gemiddelde kosten
+  - `gap_percent_heatmap.png` - Heuristic performance
 
-### Scenario 2: Single Runway - Heavy Traffic
-- **Aircraft**: 35
-- **Runways**: 1
-- **Traffic**: Peak hour
-- **Gebruik**: Toon impact van congestie op 1 runway
+## 🧮 Optimalisatie Methode
 
-### Scenario 3: Two Runways - Medium Traffic
-- **Aircraft**: 30
-- **Runways**: 2
-- **Traffic**: Medium load
-- **Gebruik**: Toon voordeel van 2de runway
+### Model Type
+**Mixed Integer Linear Programming (MILP)** volgens Beasley et al. (2000):
+> "Scheduling Aircraft Landings—The Static Case"
+> Transportation Science, 34(2), 180-197.
 
-### Scenario 4: Three Runways - Heavy Traffic
-- **Aircraft**: 50
-- **Runways**: 3
-- **Traffic**: Full rush hour
-- **Gebruik**: Toon schaalbaarheid met 3 runways
-
-## 📈 Output
-
-Na het runnen van scenarios vind je:
-
-### Per Scenario:
+### Objective Function
 ```
-results/scenario_X/
-├── figures/
-│   ├── scenario_X_heuristic_gantt.png     # Gantt chart heuristiek
-│   ├── scenario_X_optimal_gantt.png       # Gantt chart optimaal
-│   ├── scenario_X_comparison.png          # Vergelijking beide methoden
-│   └── scenario_X_cost_breakdown.png      # Kostenverdeling
-└── tables/
-    ├── scenario_X_heuristic.csv           # Heuristiek oplossing
-    ├── scenario_X_optimal.csv             # Optimale oplossing
-    ├── scenario_X_heuristic.xlsx          # Excel versie
-    └── scenario_X_optimal.xlsx
+minimize: Σ (g_i · α_i + h_i · β_i)
 ```
+- `g_i`: Penalty vroeg landen (€/min)
+- `h_i`: Penalty laat landen (€/min)
+- `α_i`: Minuten vroeg
+- `β_i`: Minuten laat
 
-### Sensitivity Analysis:
+### Decision Variables
+- `x_i ∈ ℝ⁺`: Landing tijd vliegtuig i
+- `α_i, β_i ∈ ℝ⁺`: Afwijking van target tijd
+- `δ_ij ∈ {0,1}`: Binary ordering (i landt voor j)
+- `y_ir ∈ {0,1}`: Runway assignment (i op runway r)
+
+### Key Constraints
+1. **Time windows**: `E_i ≤ x_i ≤ L_i`
+2. **Target deviation**: `x_i = T_i - α_i + β_i`
+3. **Separation** (Big-M methode):
+   - Zelfde runway: minimaal `S_ij` seconden
+   - Andere runways: minimaal `s_ij` seconden
+4. **Runway assignment**: Elk vliegtuig → 1 runway
+
+Zie `optimalisatie_methode.tex` voor volledige wiskundige formulering.
+
+### Solver
+**Default:** CBC (COIN-OR Branch and Cut) via PuLP
+- ✅ Gratis en open-source
+- ✅ Geen licentie nodig
+- ⚡ Alternatief: Gurobi (als licentie beschikbaar)
+
+**Settings:**
+- Time limit: 50s per instance
+- MIP gap: 1%
+- Branch-and-Bound algoritme
+
+## 📊 Resultaten Interpretatie
+
+### Heuristic Gap
 ```
-results/[experiment_name]/
-├── sensitivity_results_YYYYMMDD_HHMMSS.csv   # Alle resultaten
-└── heatmaps/
-    ├── optimal_cost_heatmap.png              # Hoofdresultaat!
-    └── gap_percent_heatmap.png               # Kwaliteit heuristiek
-```
-
-## 🔧 Hoe het werkt
-
-Het project gebruikt **twee oplossingsmethoden**:
-
-### 1. Greedy Heuristiek (Snel)
-- Plant vliegtuigen één voor één
-- Kiest steeds beste optie voor huidig vliegtuig
-- **Tijd**: 0.01 - 0.1 seconden
-- **Kwaliteit**: 5-15% slechter dan optimaal
-
-### 2. MILP Solver (Optimaal)
-- Zoekt globaal beste oplossing
-- Gebruikt branch-and-bound algoritme
-- **Tijd**: 10 - 50 seconden
-- **Kwaliteit**: Optimaal (binnen time limit)
-
-Zie `docs/HOE_WERKT_HET.md` voor uitgebreide uitleg.
-
-## 📊 Sensitivity Analysis
-
-De sensitivity analysis test systematisch verschillende combinaties:
-
-**Parameters:**
-- `--aircraft`: Lijst van aantallen vliegtuigen (bijv. `20 30 40 50`)
-- `--runways`: Lijst van aantallen runways (bijv. `1 2 3 4`)
-- `--rush-prob`: Percentage in rush hour (0.0 - 1.0)
-- `--time-limit`: Tijd per scenario in seconden
-- `--name`: Experiment naam
-
-**Voorbeeld:**
-```bash
-# Test impact rush hour
-python sensitivity_runner.py --rush-prob 0.3 --name low_rush
-python sensitivity_runner.py --rush-prob 0.7 --name high_rush
-
-# Vergelijk de heatmaps!
+Gap = (Heuristic Cost - Optimal Cost) / Optimal Cost × 100%
 ```
 
-## 📝 Resultaten Interpreteren
+**Interpretatie:**
+- `Gap = 0%`: Heuristic vond optimale oplossing 🎯
+- `Gap = 10%`: Heuristic is 10% duurder (redelijk)
+- `Gap < 0%`: **Timeout** - solver vond geen echte optimale oplossing
 
-### Gantt Chart
-- **X-as**: Tijd (minuten vanaf 18:00)
-- **Y-as**: Landingsbanen
-- **Blokken**: Vliegtuigen met landingstijd
-- **Kleur**: Vroeg (blauw), On-time (groen), Laat (rood)
+### Negatieve Gaps (< 0%)
+⚠️ In sensitivity analysis komen negatieve gaps voor bij:
+- **40-50 vliegtuigen met 3-4 runways**
+- Time limit van 50s is te kort voor deze complexe instances
+- Heuristic heeft betere oplossing dan solver binnen time limit
 
-### Cost Heatmap
-- **X-as**: Aantal runways
-- **Y-as**: Aantal vliegtuigen
-- **Kleur**: Kosten (EUR) - Rood = hoog, Geel = laag
-- **Trend**: Kosten dalen bij meer runways
+**Dit is OK!** Het toont:
+- Computational complexity van grote instances
+- Trade-off tussen solution quality en solve tijd
+- Waarde van goede heuristics voor real-time beslissingen
 
-### Gap Heatmap
-- **Waarde**: (Heuristiek - Optimaal) / Optimaal × 100%
-- **Interpretatie**: Hoe goed is de heuristiek?
-- **Typisch**: 5-15% gap
+**In rapport schrijven:**
+> "Voor scenarios met 40+ vliegtuigen en 3-4 runways was de 50-seconden time limit onvoldoende. In 15 van 80 scenarios (18.8%) bereikte de solver de time limit, wat resulteerde in mogelijk suboptimale oplossingen. Dit toont de computational complexity van grote-schaal aircraft landing scheduling problemen."
 
-## 🎯 Veelgebruikte Commando's
+## 🎯 Key Features
 
-```bash
-# Scenario's runnen
-python run_scenarios.py --scenario 1
-python run_scenarios.py --all
+✅ Complete MIP formulering volgens Beasley et al. (2000)
+✅ Greedy heuristic voor snelle oplossingen (< 0.01s)
+✅ Multiple runway support (1-4 runways)
+✅ Realistic Schiphol evening rush scenarios
+✅ Sensitivity analysis met 5 replications
+✅ Automatische Gantt chart visualisaties
+✅ Heatmap generatie (gemiddelde over replications)
+✅ CBC solver (gratis) + Gurobi support
 
-# Sensitivity analysis
-python sensitivity_runner.py --quick-test          # Quick (5 min)
-python sensitivity_runner.py                       # Full (30-60 min)
+## 📈 Sensitivity Analysis Details
 
-# Custom time limit
-python run_scenarios.py --scenario 2 --time-limit 100
-python sensitivity_runner.py --time-limit 100
-
-# Rush hour vergelijking
-python sensitivity_runner.py --rush-prob 0.3 --name low
-python sensitivity_runner.py --rush-prob 0.9 --name high
+### Scenario Generatie
+Elke scenario krijgt unique random seed:
+```python
+seed = base_seed + (aircraft × 1000) + (runways × 100) + replication
 ```
 
-## 📖 Documentatie
+Dit zorgt voor:
+- **Reproduceerbare** resultaten (vaste base_seed = 42)
+- **Verschillende** rush hour patronen per replication
+- **Consistente** vergelijking tussen scenarios
 
-- **HOE_WERKT_HET.md**: Simpele uitleg van de twee methoden
-- **TECHNISCHE_UITLEG_MODEL.tex**: Wiskundige formulering (LaTeX)
-- Deze README: Gebruikershandleiding
+### Aggregatie over Replications
+Heatmaps tonen **gemiddelde** van 5 replications:
 
-## ⚙️ Technische Details
+```python
+df_agg = df.groupby(['num_aircraft', 'num_runways']).agg({
+    'optimal_cost': 'mean',
+    'gap_percent': 'mean',
+    'optimal_time_s': 'mean'
+})
+```
 
-### Solver Settings
-- **Time limit**: 50 seconden (default)
-- **Optimality gap**: 1%
-- **Solver**: PuLP met CBC
+Elke cel in heatmap = gemiddelde van 5 runs → **robuustere** resultaten!
 
-### Aircraft Types
-- **Heavy** (30%): B747, B777, A330 - Separatie 90-180s
-- **Medium** (60%): B737, A320 - Separatie 60-120s
-- **Light** (10%): Citation, Phenom - Separatie 60s
+## 📖 Bestandsoverzicht
 
-### Cost Structure
-- **Heavy**: €100/min vroeg, €200/min laat
-- **Medium**: €60/min vroeg, €150/min laat
-- **Light**: €30/min vroeg, €80/min laat
+### Essentiële Bestanden
+
+| Bestand | Functie |
+|---------|---------|
+| `run_scenarios.py` | Runner voor 4 main scenarios |
+| `sensitivity_runner.py` | Runner voor sensitivity analysis |
+| `optimalisatie_methode.tex` | LaTeX documentatie methode |
+| `requirements.txt` | Python dependencies |
+
+### Core Code Modules
+
+| Module | Beschrijving |
+|--------|--------------|
+| `model.py` | MIP model volgens Beasley (2000) |
+| `solver.py` | High-level interface (heuristic + optimal) |
+| `heuristic.py` | Greedy + multi-start heuristics |
+| `schiphol_scenarios.py` | Realistische scenario generator |
+| `sensitivity_config.py` | Config voor sensitivity analysis |
+| `data_loader.py` | Parse data files |
+| `visualization.py` | Gantt charts maken |
+| `utils.py` | Helper functies |
+
+## 🔧 Aanpassingen Maken
+
+### Sensitivity Analysis Parameters Wijzigen
+
+Edit `aircraft_landing_scheduling/code/sensitivity_config.py`:
+
+```python
+# Lijn 56-59: Scenario parameters
+aircraft_counts: List[int] = [20, 30, 40, 50]  # Wijzig hier
+runway_counts: List[int] = [1, 2, 3, 4]        # Wijzig hier
+
+# Lijn 72: Solver time limit
+time_limit: int = 50  # Verhoog voor complexe scenarios
+
+# Lijn 76: Aantal replications
+num_replications: int = 5  # Wijzig voor meer/minder herhalingen
+```
+
+### Andere Rush Hour Probability
+
+```python
+# Lijn 23: Rush hour probability
+probability: float = 0.5  # 0.0-1.0, waar 0.5 = 50%
+```
 
 ## 🎓 Voor je Rapport
 
-**Aanbevolen analyses:**
+### Aanbevolen Analyses
 
 1. **Run alle 4 scenarios**
    ```bash
-   python run_scenarios.py --all
+   python run_scenarios.py
    ```
-   → Gebruik Gantt charts en cost breakdown
+   → Gebruik Gantt charts voor visuele vergelijking
 
-2. **Rush hour impact**
-   ```bash
-   python sensitivity_runner.py --rush-prob 0.3 --name low_rush
-   python sensitivity_runner.py --rush-prob 0.7 --name high_rush
-   ```
-   → Vergelijk heatmaps side-by-side
-
-3. **Runway scaling**
+2. **Volledige sensitivity analysis**
    ```bash
    python sensitivity_runner.py
    ```
-   → Analyseer diminishing returns van extra runways
+   → Analyseer heatmaps voor trends
 
-**Key metrics om te rapporteren:**
-- Optimal cost per scenario
-- Gap percentage (heuristiek vs optimaal)
-- Solve tijd (schaalbaarheid)
-- Cost reduction door extra runways
-- Rush hour impact op kosten
+### Key Metrics om te Rapporteren
+
+- ✅ Optimal cost per scenario
+- ✅ Heuristic gap percentage
+- ✅ Solve tijd (schaalbaarheid)
+- ✅ Cost reduction door extra runways
+- ✅ Impact van rush hour density
+- ✅ Percentage timeouts (negatieve gaps)
+
+### Tabellen in CSV
+
+Alle resultaten zijn opgeslagen als CSV:
+- `results/scenario_*/comparison_results.csv`
+- `results/sensitivity_analysis/sensitivity_results_*.csv`
+
+Direct te importeren in Excel/LaTeX voor je rapport!
+
+## 📚 Referenties
+
+Beasley, J. E., Krishnamoorthy, M., Sharaiha, Y. M., & Abramson, D. (2000).
+*Scheduling aircraft landings—The static case.*
+Transportation Science, 34(2), 180-197.
 
 ---
 
-**Gemaakt voor Operations Optimisation Assignment 2024**
+**AE4441-16 Operations Optimisation**
+TU Delft, 2024-2025

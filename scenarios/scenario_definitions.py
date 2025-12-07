@@ -1,133 +1,109 @@
 #!/usr/bin/env python3
 """
-Fixed Scenario Definitions
-4 predefined scenarios with known aircraft and target times
+Scenario Definitions
+Define all test scenarios for the aircraft landing scheduling problem
 """
 
 import sys
 from pathlib import Path
 
-# Add code directory to path
+# Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "aircraft_landing_scheduling"))
 
-from code.data_loader import Aircraft, ProblemInstance, DataLoader
-import numpy as np
+from code.data_loader import DataLoader
 
 
-def create_scenario_1_single_runway_light():
-    """
-    Scenario 1: Single Runway - Light Traffic
-    - 20 aircraft
-    - 1 runway
-    - Off-peak traffic pattern
-    """
-    # Load from existing file
-    data_file = Path(__file__).parent.parent / "aircraft_landing_scheduling" / "data" / "schiphol_1runway_light.txt"
-    instance = DataLoader.load_from_file(str(data_file))
-    return instance
-
-
-def create_scenario_2_single_runway_heavy():
-    """
-    Scenario 2: Single Runway - Heavy Traffic
-    - 35 aircraft
-    - 1 runway
-    - Peak hour traffic
-    """
-    data_file = Path(__file__).parent.parent / "aircraft_landing_scheduling" / "data" / "schiphol_1runway_heavy.txt"
-    instance = DataLoader.load_from_file(str(data_file))
-    return instance
-
-
-def create_scenario_3_two_runways():
-    """
-    Scenario 3: Two Runways - Medium Traffic
-    - 30 aircraft
-    - 2 runways
-    - Medium traffic load
-    """
-    data_file = Path(__file__).parent.parent / "aircraft_landing_scheduling" / "data" / "schiphol_2runways_medium.txt"
-    instance = DataLoader.load_from_file(str(data_file))
-    return instance
-
-
-def create_scenario_4_three_runways():
-    """
-    Scenario 4: Three Runways - Heavy Traffic
-    - 50 aircraft
-    - 3 runways
-    - Full rush hour
-    """
-    data_file = Path(__file__).parent.parent / "aircraft_landing_scheduling" / "data" / "schiphol_3runways_heavy.txt"
-    instance = DataLoader.load_from_file(str(data_file))
-    return instance
-
-
-# Scenario registry
+# Scenario definitions
 SCENARIOS = {
     '1': {
-        'name': 'Single Runway - Light Traffic',
-        'num_aircraft': 20,
+        'name': 'Light Traffic - Single Runway',
+        'description': 'Baseline scenario with minimal complexity',
+        'num_aircraft': 10,
         'num_runways': 1,
-        'function': create_scenario_1_single_runway_light,
-        'description': 'Off-peak traffic, 20 aircraft on single runway'
+        'data_file': 'data/schiphol_1runway_light.txt'
     },
     '2': {
-        'name': 'Single Runway - Heavy Traffic',
-        'num_aircraft': 35,
+        'name': 'Heavy Traffic - Single Runway',
+        'description': 'Maximum load on single runway',
+        'num_aircraft': 20,
         'num_runways': 1,
-        'function': create_scenario_2_single_runway_heavy,
-        'description': 'Peak hour traffic, 35 aircraft on single runway'
+        'data_file': 'data/schiphol_1runway_heavy.txt'
     },
     '3': {
-        'name': 'Two Runways - Medium Traffic',
-        'num_aircraft': 30,
-        'num_runways': 2,
-        'function': create_scenario_3_two_runways,
-        'description': 'Medium traffic load across 2 runways'
-    },
-    '4': {
-        'name': 'Three Runways - Heavy Traffic',
+        'name': 'Heavy Traffic - Three Runways',
+        'description': 'Complex scenario with multiple runways',
         'num_aircraft': 50,
         'num_runways': 3,
-        'function': create_scenario_4_three_runways,
-        'description': 'Full rush hour with 50 aircraft on 3 runways'
+        'data_file': 'data/schiphol_3runways_heavy.txt'
+    },
+    '4': {
+        'name': 'Extreme Rush Hour',
+        'description': 'Same as scenario 3 (alternative configuration)',
+        'num_aircraft': 50,
+        'num_runways': 3,
+        'data_file': 'data/schiphol_3runways_heavy.txt'
+    },
+    '5': {
+        'name': 'Realistic Schiphol Peak Hour',
+        'description': 'Realistic scenario based on actual Schiphol data (11:00-11:40 peak)',
+        'num_aircraft': 50,
+        'num_runways': 3,
+        'data_file': 'data/schiphol_realistic_peak.txt'
     }
 }
 
 
 def get_scenario(scenario_id):
-    """Get scenario by ID (1-4)"""
-    if str(scenario_id) not in SCENARIOS:
-        raise ValueError(f"Invalid scenario ID: {scenario_id}. Choose 1-4.")
+    """
+    Load a scenario by ID.
 
-    scenario_info = SCENARIOS[str(scenario_id)]
-    instance = scenario_info['function']()
+    Args:
+        scenario_id: Scenario ID (1-5) as string or int
 
-    return instance, scenario_info
+    Returns:
+        (ProblemInstance, scenario_info dict)
+    """
+    scenario_id = str(scenario_id)
+
+    if scenario_id not in SCENARIOS:
+        raise ValueError(f"Unknown scenario ID: {scenario_id}. Valid options: 1-5")
+
+    info = SCENARIOS[scenario_id]
+
+    # Load problem instance
+    data_file = Path(__file__).parent.parent / info['data_file']
+
+    if not data_file.exists():
+        raise FileNotFoundError(f"Data file not found: {data_file}")
+
+    instance = DataLoader.load_from_file(str(data_file))
+
+    return instance, info
 
 
 def print_scenarios():
-    """Print all available scenarios"""
+    """Print available scenarios."""
     print("\n" + "=" * 70)
     print("AVAILABLE SCENARIOS")
     print("=" * 70)
 
-    for sid, info in SCENARIOS.items():
-        print(f"\n{sid}. {info['name']}")
-        print(f"   Aircraft: {info['num_aircraft']}")
-        print(f"   Runways: {info['num_runways']}")
-        print(f"   {info['description']}")
+    for scenario_id, info in SCENARIOS.items():
+        print(f"\nScenario {scenario_id}: {info['name']}")
+        print(f"  Aircraft: {info['num_aircraft']}")
+        print(f"  Runways: {info['num_runways']}")
+        print(f"  Description: {info['description']}")
+        print(f"  Data: {info['data_file']}")
 
-    print("=" * 70 + "\n")
+    print("\n" + "=" * 70 + "\n")
 
 
 if __name__ == "__main__":
-    # Test: print all scenarios
-    print_scenarios()
+    # Test scenario loading
+    print("Testing scenario definitions...")
 
-    # Test: load scenario 1
-    print("Testing scenario 1...")
-    instance, info = get_scenario(1)
-    print(f"✓ Loaded: {info['name']}")
-    print(f"  Aircraft count: {instance.num_aircraft}")
+    for scenario_id in ['1', '2', '3', '4', '5']:
+        try:
+            instance, info = get_scenario(scenario_id)
+            print(f"✓ Scenario {scenario_id}: {info['name']} - {len(instance.aircraft)} aircraft loaded")
+        except Exception as e:
+            print(f"✗ Scenario {scenario_id}: {e}")

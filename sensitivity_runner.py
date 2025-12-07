@@ -39,58 +39,60 @@ def run_sensitivity_analysis(config: SensitivityAnalysisConfig):
 
     results = []
     start_time = time.time()
-    total_scenarios = len(config.aircraft_counts) * len(config.runway_counts)
+    total_scenarios = len(config.aircraft_counts) * len(config.runway_counts) * config.num_replications
     scenario_counter = 0
 
     # Run all scenarios
     for num_aircraft in config.aircraft_counts:
         for num_runways in config.runway_counts:
-            scenario_counter += 1
-            print(f"\n{'=' * 70}")
-            print(f"Scenario {scenario_counter}/{total_scenarios}")
-            print(f"Aircraft: {num_aircraft}, Runways: {num_runways}")
-            print(f"{'=' * 70}")
+            for replication in range(config.num_replications):
+                scenario_counter += 1
+                print(f"\n{'=' * 70}")
+                print(f"Scenario {scenario_counter}/{total_scenarios}")
+                print(f"Aircraft: {num_aircraft}, Runways: {num_runways}, Rep: {replication + 1}/{config.num_replications}")
+                print(f"{'=' * 70}")
 
-            # Generate scenario
-            scenario_seed = config.random_seed + (num_aircraft * 1000) + (num_runways * 100)
-            scenario_name = f"sensitivity_a{num_aircraft}_r{num_runways}"
+                # Generate scenario
+                scenario_seed = config.random_seed + (num_aircraft * 1000) + (num_runways * 100) + replication
+                scenario_name = f"sensitivity_a{num_aircraft}_r{num_runways}_rep{replication}"
 
-            print(f"\nGenerating scenario: {scenario_name}")
-            instance = create_schiphol_evening_rush(
-                num_aircraft=num_aircraft,
-                num_runways=num_runways,
-                scenario_name=scenario_name,
-                heavy_ratio=config.aircraft_mix.heavy_ratio,
-                medium_ratio=config.aircraft_mix.medium_ratio,
-                light_ratio=config.aircraft_mix.light_ratio,
-                seed=scenario_seed,
-                peak_hour_probability=config.rush_hour.probability
-            )
+                print(f"\nGenerating scenario: {scenario_name}")
+                instance = create_schiphol_evening_rush(
+                    num_aircraft=num_aircraft,
+                    num_runways=num_runways,
+                    scenario_name=scenario_name,
+                    heavy_ratio=config.aircraft_mix.heavy_ratio,
+                    medium_ratio=config.aircraft_mix.medium_ratio,
+                    light_ratio=config.aircraft_mix.light_ratio,
+                    seed=scenario_seed,
+                    peak_hour_probability=config.rush_hour.probability
+                )
 
-            # Solve
-            solver = OptimalSolver(instance, instance_name=scenario_name)
-            comparison_result = solver.solve_and_compare(
-                num_runways=num_runways,
-                time_limit=config.time_limit,
-                use_multi_start=False
-            )
+                # Solve
+                solver = OptimalSolver(instance, instance_name=scenario_name)
+                comparison_result = solver.solve_and_compare(
+                    num_runways=num_runways,
+                    time_limit=config.time_limit,
+                    use_multi_start=False
+                )
 
-            # Store results
-            result = {
-                'num_aircraft': num_aircraft,
-                'num_runways': num_runways,
-                'scenario_name': scenario_name,
-                'rush_hour_prob': config.rush_hour.probability,
-                'heuristic_cost': comparison_result.heuristic_cost,
-                'optimal_cost': comparison_result.optimal_cost,
-                'gap_percent': comparison_result.gap,
-                'heuristic_time_s': comparison_result.heuristic_time,
-                'optimal_time_s': comparison_result.optimal_time,
-                'speedup': comparison_result.speedup
-            }
-            results.append(result)
+                # Store results
+                result = {
+                    'num_aircraft': num_aircraft,
+                    'num_runways': num_runways,
+                    'replication': replication,
+                    'scenario_name': scenario_name,
+                    'rush_hour_prob': config.rush_hour.probability,
+                    'heuristic_cost': comparison_result.heuristic_cost,
+                    'optimal_cost': comparison_result.optimal_cost,
+                    'gap_percent': comparison_result.gap,
+                    'heuristic_time_s': comparison_result.heuristic_time,
+                    'optimal_time_s': comparison_result.optimal_time,
+                    'speedup': comparison_result.speedup
+                }
+                results.append(result)
 
-            print(f"  ✓ Optimal cost = {comparison_result.optimal_cost:.2f}, Gap = {comparison_result.gap:.2f}%")
+                print(f"  ✓ Optimal cost = {comparison_result.optimal_cost:.2f}, Gap = {comparison_result.gap:.2f}%")
 
     # Create DataFrame
     df = pd.DataFrame(results)
@@ -142,8 +144,15 @@ def generate_heatmaps(df, output_dir):
     heatmap_dir = Path(output_dir) / "heatmaps"
     heatmap_dir.mkdir(parents=True, exist_ok=True)
 
+    # Aggregate replications first (take mean)
+    df_agg = df.groupby(['num_aircraft', 'num_runways']).agg({
+        'optimal_cost': 'mean',
+        'gap_percent': 'mean',
+        'optimal_time_s': 'mean'
+    }).reset_index()
+
     # Optimal cost heatmap
-    pivot = df.pivot(index='num_aircraft', columns='num_runways', values='optimal_cost')
+    pivot = df_agg.pivot(index='num_aircraft', columns='num_runways', values='optimal_cost')
 
     plt.figure(figsize=(10, 6))
     sns.heatmap(pivot, annot=True, fmt='.0f', cmap='YlOrRd', linewidths=0.5)
@@ -156,7 +165,7 @@ def generate_heatmaps(df, output_dir):
     plt.close()
 
     # Gap heatmap
-    pivot_gap = df.pivot(index='num_aircraft', columns='num_runways', values='gap_percent')
+    pivot_gap = df_agg.pivot(index='num_aircraft', columns='num_runways', values='gap_percent')
 
     plt.figure(figsize=(10, 6))
     sns.heatmap(pivot_gap, annot=True, fmt='.2f', cmap='RdYlGn_r', linewidths=0.5)

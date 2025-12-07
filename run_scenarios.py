@@ -135,13 +135,13 @@ def run_scenario(scenario_id, time_limit=50, output_dir=None):
 
 
 def run_all_scenarios(time_limit=50):
-    """Run all 4 scenarios."""
+    """Run all 5 scenarios."""
     print("\n" + "=" * 70)
     print("RUNNING ALL SCENARIOS")
     print("=" * 70)
 
     results = {}
-    for scenario_id in ['1', '2', '3', '4']:
+    for scenario_id in ['1', '2', '3', '4', '5']:
         result = run_scenario(scenario_id, time_limit=time_limit)
         results[scenario_id] = result
 
@@ -186,8 +186,8 @@ Examples:
     parser.add_argument(
         '--scenario',
         type=int,
-        choices=[1, 2, 3, 4],
-        help='Run specific scenario (1-4)'
+        choices=[1, 2, 3, 4, 5],
+        help='Run specific scenario (1-5)'
     )
 
     parser.add_argument(
@@ -221,11 +221,11 @@ Examples:
         else:
             # Default: show menu
             print_scenarios()
-            choice = input("Select scenario (1-4) or 'all': ").strip()
+            choice = input("Select scenario (1-5) or 'all': ").strip()
 
             if choice.lower() == 'all':
                 run_all_scenarios(time_limit=args.time_limit)
-            elif choice in ['1', '2', '3', '4']:
+            elif choice in ['1', '2', '3', '4', '5']:
                 run_scenario(choice, time_limit=args.time_limit)
             else:
                 print(f"Invalid choice: {choice}")

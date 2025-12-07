@@ -348,7 +348,10 @@ def run_sensitivity_from_config(config_file: str = None, config_obj: Sensitivity
 
 if __name__ == "__main__":
     # Example: Run with default configuration
-    from sensitivity_config import create_default_config
+    try:
+        from .sensitivity_config import create_default_config
+    except ImportError:
+        from sensitivity_config import create_default_config
 
     config = create_default_config()
     results_df, analyzer = run_sensitivity_from_config(config_obj=config)
