@@ -134,9 +134,11 @@ class SensitivityAnalyzer:
                 num_aircraft=num_aircraft,
                 num_runways=num_runways,
                 scenario_name=scenario_name,
-                heavy_ratio=self.config.aircraft_mix.heavy_ratio,
-                medium_ratio=self.config.aircraft_mix.medium_ratio,
-                light_ratio=self.config.aircraft_mix.light_ratio,
+                cat_b_ratio=self.config.aircraft_mix.cat_b_ratio,
+                cat_c_ratio=self.config.aircraft_mix.cat_c_ratio,
+                cat_d_ratio=self.config.aircraft_mix.cat_d_ratio,
+                cat_e_ratio=self.config.aircraft_mix.cat_e_ratio,
+                cat_f_ratio=self.config.aircraft_mix.cat_f_ratio,
                 seed=scenario_seed,
                 peak_hour_probability=self.config.rush_hour.probability
             )
@@ -160,13 +162,17 @@ class SensitivityAnalyzer:
                 'rush_hour_prob': self.config.rush_hour.probability,
                 'heuristic_cost': comparison_result.heuristic_cost,
                 'optimal_cost': comparison_result.optimal_cost,
-                'gap_percent': comparison_result.gap,
+                'gap_percent': comparison_result.gap,  # Gap between heuristic and optimal
                 'heuristic_time_s': comparison_result.heuristic_time,
                 'optimal_time_s': comparison_result.optimal_time,
+                'solver_gap_percent': comparison_result.optimal_solution.gap if comparison_result.optimal_solution else 0.0,  # MIP solver gap
+                'status': comparison_result.optimal_solution.status if comparison_result.optimal_solution else 'Unknown',  # Solver status
                 'speedup': comparison_result.speedup,
-                'heavy_ratio': self.config.aircraft_mix.heavy_ratio,
-                'medium_ratio': self.config.aircraft_mix.medium_ratio,
-                'light_ratio': self.config.aircraft_mix.light_ratio,
+                'cat_b_ratio': self.config.aircraft_mix.cat_b_ratio,
+                'cat_c_ratio': self.config.aircraft_mix.cat_c_ratio,
+                'cat_d_ratio': self.config.aircraft_mix.cat_d_ratio,
+                'cat_e_ratio': self.config.aircraft_mix.cat_e_ratio,
+                'cat_f_ratio': self.config.aircraft_mix.cat_f_ratio,
                 'seed': scenario_seed
             }
 

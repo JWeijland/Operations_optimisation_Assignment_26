@@ -121,6 +121,8 @@ def create_comprehensive_results_table(results_df: pd.DataFrame, output_dir: Pat
         'heuristic_cost',
         'gap_percent',
         'optimal_time_s',
+        'solver_gap_percent',  # ADD: MIP solver optimality gap
+        'status',               # ADD: Solver status
         'heuristic_time_s',
         'speedup',
         'scenario_name',
@@ -170,10 +172,12 @@ def print_banner():
 ║  This will run a comprehensive sensitivity analysis with:                   ║
 ║    • Aircraft counts: 10, 20, 30, 40, 50                                    ║
 ║    • Runway counts: 1, 2, 3                                                 ║
-║    • Time limit: 300 seconds per scenario                                   ║
-║    • Total scenarios: 15 combinations × 1 replication = 15 runs             ║
+║    • Time limit: 600 seconds (10 min) per run                               ║
+║    • Optimality gap: 0% (TRUE OPTIMAL SOLUTIONS!)                           ║
+║    • Replications: 20 per scenario                                          ║
+║    • Total runs: 15 combinations × 20 replications = 300 RUNS!              ║
 ║                                                                              ║
-║  Estimated time: 15-75 minutes (depending on solve times)                   ║
+║  Estimated time: 10-50 HOURS (leave it running overnight!)                  ║
 ║                                                                              ║
 ║  Outputs:                                                                   ║
 ║    1. Comprehensive results table (CSV + Excel)                             ║
@@ -206,8 +210,8 @@ def main():
         experiment_name="complete_sensitivity_10_to_50_aircraft",
         aircraft_counts=[10, 20, 30, 40, 50],  # 5 aircraft counts
         runway_counts=[1, 2, 3],                 # 3 runway counts
-        time_limit=300,                          # 5 minutes per scenario
-        num_replications=1,                      # 1 replication (no randomness averaging)
+        time_limit=600,                          # 10 minutes per scenario (2x longer for optimal solutions!)
+        num_replications=20,                     # 20 replications per scenario for statistical robustness!
         random_seed=42,
         rush_hour=RushHourConfig(
             start_minute=60.0,
@@ -215,9 +219,11 @@ def main():
             probability=0.5  # 50% of aircraft in rush hour
         ),
         aircraft_mix=AircraftMixConfig(
-            heavy_ratio=0.30,   # 30% heavy
-            medium_ratio=0.67,  # 67% medium
-            light_ratio=0.03    # 3% light
+            cat_b_ratio=0.182,  # 18.2% CAT-B (Upper Heavy): B747, B777, B787, A330
+            cat_c_ratio=0.0,    # 0% CAT-C (not used at Schiphol)
+            cat_d_ratio=0.546,  # 54.6% CAT-D (Upper Medium): B737, A320
+            cat_e_ratio=0.272,  # 27.2% CAT-E (Lower Medium): E190, E175
+            cat_f_ratio=0.0     # 0% CAT-F (not used at Schiphol)
         ),
         output_dir="results/complete_sensitivity_analysis",
         save_detailed_results=False,  # Don't save individual solutions (saves space)

@@ -114,7 +114,7 @@ class OptimalSolver:
         self,
         num_runways: int = 1,
         time_limit: int = 300,
-        gap: float = 0.01
+        gap: float = 0.0  # 0% gap = optimal solutions only!
     ) -> Optional[Solution]:
         """
         Solve optimally using MIP.
@@ -140,7 +140,7 @@ class OptimalSolver:
         self,
         num_runways: int = 1,
         time_limit: int = 300,
-        gap: float = 0.02,
+        gap: float = 0.0,  # 0% gap = optimal solutions only!
         use_multi_start: bool = False
     ) -> ComparisonResult:
         """
@@ -149,7 +149,7 @@ class OptimalSolver:
         Args:
             num_runways: Number of runways
             time_limit: Time limit for optimal solver
-            gap: Optimality gap (default 0.02 = 2%)
+            gap: Optimality gap (default 0.0 = optimal solutions only!)
             use_multi_start: Use multi-start heuristic
 
         Returns:

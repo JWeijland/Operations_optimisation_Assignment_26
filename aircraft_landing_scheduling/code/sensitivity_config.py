@@ -29,13 +29,15 @@ class RushHourConfig:
 
 @dataclass
 class AircraftMixConfig:
-    """Configuration for aircraft type distribution."""
-    heavy_ratio: float = 0.30
-    medium_ratio: float = 0.67
-    light_ratio: float = 0.03
+    """Configuration for aircraft type distribution - Schiphol realistic mix."""
+    cat_b_ratio: float = 0.182  # CAT-B (Upper Heavy): 18.2%
+    cat_c_ratio: float = 0.0    # CAT-C (Lower Heavy): 0% (not used at Schiphol)
+    cat_d_ratio: float = 0.546  # CAT-D (Upper Medium): 54.6%
+    cat_e_ratio: float = 0.272  # CAT-E (Lower Medium): 27.2%
+    cat_f_ratio: float = 0.0    # CAT-F (Light): 0% (not used at Schiphol)
 
     def __post_init__(self):
-        total = self.heavy_ratio + self.medium_ratio + self.light_ratio
+        total = self.cat_b_ratio + self.cat_c_ratio + self.cat_d_ratio + self.cat_e_ratio + self.cat_f_ratio
         assert abs(total - 1.0) < 0.01, f"Ratios must sum to 1.0, got {total}"
 
 
@@ -109,9 +111,11 @@ class SensitivityAnalysisConfig:
                 'probability': self.rush_hour.probability
             },
             'aircraft_mix': {
-                'heavy_ratio': self.aircraft_mix.heavy_ratio,
-                'medium_ratio': self.aircraft_mix.medium_ratio,
-                'light_ratio': self.aircraft_mix.light_ratio
+                'cat_b_ratio': self.aircraft_mix.cat_b_ratio,
+                'cat_c_ratio': self.aircraft_mix.cat_c_ratio,
+                'cat_d_ratio': self.aircraft_mix.cat_d_ratio,
+                'cat_e_ratio': self.aircraft_mix.cat_e_ratio,
+                'cat_f_ratio': self.aircraft_mix.cat_f_ratio
             },
             'time_window': {
                 'total_minutes': self.time_window.total_minutes,
@@ -185,10 +189,12 @@ class SensitivityAnalysisConfig:
         print(f"\nRush Hour Configuration:")
         print(f"  Time window: {self.rush_hour.start_minute:.0f}-{self.rush_hour.end_minute:.0f} minutes")
         print(f"  Rush hour probability: {self.rush_hour.probability*100:.0f}%")
-        print(f"\nAircraft Mix:")
-        print(f"  Heavy: {self.aircraft_mix.heavy_ratio*100:.0f}%")
-        print(f"  Medium: {self.aircraft_mix.medium_ratio*100:.0f}%")
-        print(f"  Light: {self.aircraft_mix.light_ratio*100:.0f}%")
+        print(f"\nAircraft Mix (Schiphol realistic - 3 active categories):")
+        print(f"  CAT-B (Upper Heavy): {self.aircraft_mix.cat_b_ratio*100:.1f}%  (B747, B777, B787, A330)")
+        print(f"  CAT-C (Lower Heavy): {self.aircraft_mix.cat_c_ratio*100:.1f}%  (not used)")
+        print(f"  CAT-D (Upper Medium): {self.aircraft_mix.cat_d_ratio*100:.1f}%  (B737, A320)")
+        print(f"  CAT-E (Lower Medium): {self.aircraft_mix.cat_e_ratio*100:.1f}%  (E190, E175)")
+        print(f"  CAT-F (Light): {self.aircraft_mix.cat_f_ratio*100:.1f}%  (not used)")
         print(f"\nTime Window:")
         print(f"  Total duration: {self.time_window.total_minutes:.0f} minutes")
         print(f"  Base time: {self.time_window.base_time_label}")
@@ -205,7 +211,7 @@ class SensitivityAnalysisConfig:
 # Predefined configurations for common experiments
 
 def create_default_config() -> SensitivityAnalysisConfig:
-    """Create default configuration."""
+    """Create default configuration with 5-category aircraft mix."""
     return SensitivityAnalysisConfig(
         experiment_name="default_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -216,16 +222,18 @@ def create_default_config() -> SensitivityAnalysisConfig:
             probability=0.5
         ),
         aircraft_mix=AircraftMixConfig(
-            heavy_ratio=0.30,
-            medium_ratio=0.67,
-            light_ratio=0.03
+            cat_b_ratio=0.10,
+            cat_c_ratio=0.31,
+            cat_d_ratio=0.45,
+            cat_e_ratio=0.12,
+            cat_f_ratio=0.02
         )
     )
 
 
 def create_extreme_rush_config() -> SensitivityAnalysisConfig:
     """Create configuration with extreme rush hour (90% concentration).
-    NOTE: Aircraft mix ratio's blijven vast zoals default (30/67/3)."""
+    NOTE: Aircraft mix ratio's blijven vast zoals default (10/31/45/12/2)."""
     return SensitivityAnalysisConfig(
         experiment_name="extreme_rush_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -235,11 +243,7 @@ def create_extreme_rush_config() -> SensitivityAnalysisConfig:
             end_minute=90.0,
             probability=0.9  # 90% in rush hour!
         ),
-        aircraft_mix=AircraftMixConfig(
-            heavy_ratio=0.30,  # FIXED: Same as default
-            medium_ratio=0.67,  # FIXED: Same as default
-            light_ratio=0.03   # FIXED: Same as default
-        )
+        aircraft_mix=AircraftMixConfig()  # Use default 5-category mix
     )
 
 
@@ -259,7 +263,7 @@ def create_no_rush_config() -> SensitivityAnalysisConfig:
 
 def create_heavy_traffic_config() -> SensitivityAnalysisConfig:
     """Create configuration focused on heavy aircraft.
-    NOTE: Aircraft mix ratio's blijven vast zoals default (30/67/3)."""
+    NOTE: Aircraft mix ratio's blijven vast zoals default (10/31/45/12/2)."""
     return SensitivityAnalysisConfig(
         experiment_name="heavy_traffic_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -269,11 +273,7 @@ def create_heavy_traffic_config() -> SensitivityAnalysisConfig:
             end_minute=90.0,
             probability=0.6
         ),
-        aircraft_mix=AircraftMixConfig(
-            heavy_ratio=0.30,  # FIXED: Same as default
-            medium_ratio=0.67,  # FIXED: Same as default
-            light_ratio=0.03   # FIXED: Same as default
-        )
+        aircraft_mix=AircraftMixConfig()  # Use default 5-category mix
     )
 
 

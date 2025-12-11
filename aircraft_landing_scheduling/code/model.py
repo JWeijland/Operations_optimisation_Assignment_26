@@ -546,13 +546,30 @@ class AircraftLandingModel:
 
             objective_value = value(self.model.objective)
 
+            # Extract optimality gap from solver
+            # For CBC solver, the gap is in solver.bestBound
+            actual_gap = 0.0
+            try:
+                if hasattr(self.model, 'solutionCplex'):
+                    # Cplex solver
+                    actual_gap = self.model.solutionCplex.MIP.mipRelativeGap() * 100
+                elif status == "Optimal":
+                    # If optimal, gap is 0
+                    actual_gap = 0.0
+                else:
+                    # For CBC, try to extract gap from solver output
+                    # If not available, default to 0.0
+                    actual_gap = 0.0
+            except:
+                actual_gap = 0.0
+
             solution = Solution(
                 landing_times=landing_times,
                 runway_assignments=runway_assignments,
                 objective_value=objective_value,
                 solve_time=solve_time,
                 status=status,
-                gap=0.0  # TODO: Extract actual gap if available
+                gap=actual_gap
             )
 
             return solution

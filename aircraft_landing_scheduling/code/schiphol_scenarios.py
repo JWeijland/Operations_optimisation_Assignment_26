@@ -15,12 +15,12 @@ except ImportError:
     from data_loader import Aircraft, ProblemInstance, DataLoader
 
 
-# Aircraft type definitions based on ICAO wake turbulence categories
+# Aircraft type definitions based on 5-category wake turbulence system
 @dataclass
 class AircraftType:
     """Defines characteristics of different aircraft categories."""
     name: str
-    wake_category: str  # Heavy, Medium, Light
+    wake_category: str  # B, C, D, E, F
     typical_models: List[str]
     early_cost_per_min: float  # Fuel cost for holding pattern
     late_cost_per_min: float   # Missed connections, gate fees, passenger compensation
@@ -30,56 +30,103 @@ class AircraftType:
     late_buffer_max: float     # Maximum minutes can arrive late
 
 
-# Define realistic aircraft types with consistent time buffers per type
+# Define realistic aircraft types - Schiphol uses only 3 categories (B/D/E)
 AIRCRAFT_TYPES = {
-    'HEAVY': AircraftType(
-        name='Heavy',
-        wake_category='H',
-        typical_models=['Boeing 747', 'Boeing 777', 'Airbus A330', 'Airbus A350'],
-        early_cost_per_min=100.0,  # €100/min fuel cost
-        late_cost_per_min=200.0,   # €200/min delay cost (higher due to connections)
-        early_buffer_min=5.0,      # Heavy aircraft: more fuel reserve
-        early_buffer_max=8.0,      # Can hold longer
-        late_buffer_min=10.0,      # More critical connections
-        late_buffer_max=15.0       # Higher priority for on-time
+    'CAT_B': AircraftType(
+        name='CAT-B (Upper Heavy)',
+        wake_category='B',
+        typical_models=['Boeing 747', 'Boeing 777', 'Boeing 787', 'Airbus A330'],
+        early_cost_per_min=120.0,  # €120/min fuel cost (largest aircraft)
+        late_cost_per_min=250.0,   # €250/min delay cost (most connections)
+        early_buffer_min=6.0,      # Upper heavy: most fuel reserve
+        early_buffer_max=10.0,     # Can hold longest
+        late_buffer_min=12.0,      # Critical connections
+        late_buffer_max=18.0       # Highest priority
     ),
-    'MEDIUM': AircraftType(
-        name='Medium',
-        wake_category='M',
-        typical_models=['Boeing 737', 'Airbus A320', 'Embraer E190'],
-        early_cost_per_min=60.0,   # €60/min fuel cost
-        late_cost_per_min=150.0,   # €150/min delay cost
-        early_buffer_min=4.0,      # Medium aircraft: moderate fuel
+    'CAT_C': AircraftType(
+        name='CAT-C (Lower Heavy)',
+        wake_category='C',
+        typical_models=['Not used at Schiphol'],
+        early_cost_per_min=100.0,  # Placeholder (not used)
+        late_cost_per_min=200.0,
+        early_buffer_min=5.0,
+        early_buffer_max=8.0,
+        late_buffer_min=10.0,
+        late_buffer_max=15.0
+    ),
+    'CAT_D': AircraftType(
+        name='CAT-D (Upper Medium)',
+        wake_category='D',
+        typical_models=['Boeing 737', 'Airbus A320'],
+        early_cost_per_min=70.0,   # €70/min fuel cost
+        late_cost_per_min=160.0,   # €160/min delay cost
+        early_buffer_min=4.0,      # Upper medium: moderate fuel
         early_buffer_max=6.0,
         late_buffer_min=8.0,       # Some flexibility
         late_buffer_max=12.0
     ),
-    'LIGHT': AircraftType(
-        name='Light',
-        wake_category='L',
-        typical_models=['Cessna Citation', 'Embraer Phenom', 'Pilatus PC-12'],
-        early_cost_per_min=30.0,   # €30/min fuel cost
-        late_cost_per_min=80.0,    # €80/min delay cost
-        early_buffer_min=3.0,      # Light aircraft: less fuel reserve
-        early_buffer_max=5.0,      # Tighter constraints
-        late_buffer_min=6.0,       # Lower priority, more flexible
+    'CAT_E': AircraftType(
+        name='CAT-E (Lower Medium)',
+        wake_category='E',
+        typical_models=['Embraer 190', 'Embraer 175'],
+        early_cost_per_min=50.0,   # €50/min fuel cost
+        late_cost_per_min=120.0,   # €120/min delay cost
+        early_buffer_min=3.5,      # Lower medium: limited fuel
+        early_buffer_max=5.5,
+        late_buffer_min=7.0,       # More flexible
         late_buffer_max=10.0
+    ),
+    'CAT_F': AircraftType(
+        name='CAT-F (Light)',
+        wake_category='F',
+        typical_models=['Not used at Schiphol'],
+        early_cost_per_min=40.0,   # Placeholder (not used)
+        late_cost_per_min=100.0,
+        early_buffer_min=3.0,
+        early_buffer_max=5.0,
+        late_buffer_min=6.0,
+        late_buffer_max=9.0
     )
 }
 
 
 # Wake turbulence separation requirements (in seconds)
-# Based on ICAO standards
+# Based on 5-category system with specific separation times
 SEPARATION_MATRIX = {
-    ('H', 'H'): 90,   # Heavy behind Heavy
-    ('H', 'M'): 120,  # Medium behind Heavy
-    ('H', 'L'): 180,  # Light behind Heavy
-    ('M', 'H'): 60,   # Heavy behind Medium
-    ('M', 'M'): 60,   # Medium behind Medium
-    ('M', 'L'): 120,  # Light behind Medium
-    ('L', 'H'): 60,   # Heavy behind Light
-    ('L', 'M'): 60,   # Medium behind Light
-    ('L', 'L'): 60,   # Light behind Light
+    # CAT-B (Upper Heavy) leading
+    ('B', 'B'): 60,   # B behind B
+    ('B', 'C'): 60,   # C behind B
+    ('B', 'D'): 100,  # D behind B ⚠️
+    ('B', 'E'): 120,  # E behind B ⚠️
+    ('B', 'F'): 140,  # F behind B ⚠️
+
+    # CAT-C (Lower Heavy) leading
+    ('C', 'B'): 60,   # B behind C
+    ('C', 'C'): 60,   # C behind C
+    ('C', 'D'): 80,   # D behind C ⚠️
+    ('C', 'E'): 100,  # E behind C ⚠️
+    ('C', 'F'): 120,  # F behind C ⚠️
+
+    # CAT-D (Upper Medium) leading
+    ('D', 'B'): 60,   # B behind D
+    ('D', 'C'): 60,   # C behind D
+    ('D', 'D'): 60,   # D behind D
+    ('D', 'E'): 80,   # E behind D ⚠️ (UPDATED!)
+    ('D', 'F'): 120,  # F behind D ⚠️
+
+    # CAT-E (Lower Medium) leading
+    ('E', 'B'): 60,   # B behind E
+    ('E', 'C'): 60,   # C behind E
+    ('E', 'D'): 60,   # D behind E
+    ('E', 'E'): 60,   # E behind E
+    ('E', 'F'): 100,  # F behind E ⚠️
+
+    # CAT-F (Light) leading
+    ('F', 'B'): 60,   # B behind F
+    ('F', 'C'): 60,   # C behind F
+    ('F', 'D'): 60,   # D behind F
+    ('F', 'E'): 60,   # E behind F
+    ('F', 'F'): 80,   # F behind F ⚠️
 }
 
 
@@ -98,25 +145,29 @@ def get_separation_time(leading_type: str, following_type: str) -> float:
 
 
 def create_schiphol_evening_rush(
-    num_aircraft: int = 30,
+    num_aircraft: int = 49,  # Changed default to match 5+15+22+6+1=49
     num_runways: int = 1,
     scenario_name: str = "schiphol_evening_1runway",
-    heavy_ratio: float = 0.3,
-    medium_ratio: float = 0.6,
-    light_ratio: float = 0.1,
+    cat_b_ratio: float = 0.10,  # CAT-B (Upper Heavy): 10%
+    cat_c_ratio: float = 0.31,  # CAT-C (Lower Heavy): 31%
+    cat_d_ratio: float = 0.45,  # CAT-D (Upper Medium): 45%
+    cat_e_ratio: float = 0.12,  # CAT-E (Lower Medium): 12%
+    cat_f_ratio: float = 0.02,  # CAT-F (Light): 2%
     seed: int = 42,
     peak_hour_probability: float = 0.5
 ) -> ProblemInstance:
     """
-    Create realistic Schiphol evening rush hour scenario (18:00-20:00).
+    Create realistic Schiphol evening rush hour scenario (18:00-20:00) with 5 aircraft categories.
 
     Args:
         num_aircraft: Number of arriving aircraft
         num_runways: Number of available runways (1-3)
         scenario_name: Name for the scenario
-        heavy_ratio: Proportion of heavy aircraft
-        medium_ratio: Proportion of medium aircraft
-        light_ratio: Proportion of light aircraft
+        cat_b_ratio: Proportion of CAT-B (Upper Heavy) aircraft
+        cat_c_ratio: Proportion of CAT-C (Lower Heavy) aircraft
+        cat_d_ratio: Proportion of CAT-D (Upper Medium) aircraft
+        cat_e_ratio: Proportion of CAT-E (Lower Medium) aircraft
+        cat_f_ratio: Proportion of CAT-F (Light) aircraft
         seed: Random seed for reproducibility
         peak_hour_probability: Probability that aircraft arrives in peak hour (0.0-1.0)
                                0.5 = 50% in peak hour (normal)
@@ -128,23 +179,23 @@ def create_schiphol_evening_rush(
     np.random.seed(seed)
 
     # Validate ratios
-    assert abs(heavy_ratio + medium_ratio + light_ratio - 1.0) < 0.01, \
-        "Aircraft type ratios must sum to 1.0"
+    total_ratio = cat_b_ratio + cat_c_ratio + cat_d_ratio + cat_e_ratio + cat_f_ratio
+    assert abs(total_ratio - 1.0) < 0.01, \
+        f"Aircraft type ratios must sum to 1.0, got {total_ratio}"
 
-    # Generate aircraft mix
-    # Round to nearest integer while ensuring at least 1 light aircraft
-    num_heavy = round(num_aircraft * heavy_ratio)
-    num_medium = round(num_aircraft * medium_ratio)
-    num_light = num_aircraft - num_heavy - num_medium
+    # Generate aircraft mix - only B, D, E (C and F are 0% at Schiphol)
+    num_cat_b = round(num_aircraft * cat_b_ratio)
+    num_cat_d = round(num_aircraft * cat_d_ratio)
+    num_cat_e = num_aircraft - num_cat_b - num_cat_d  # Remaining aircraft are CAT-E
 
-    # Ensure at least 1 light aircraft (adjust medium if needed)
-    if num_light < 1:
-        num_light = 1
-        num_medium = num_aircraft - num_heavy - num_light
+    # Verify ratios (C and F should be 0)
+    if cat_c_ratio > 0.001 or cat_f_ratio > 0.001:
+        print(f"WARNING: CAT-C ({cat_c_ratio*100:.1f}%) and CAT-F ({cat_f_ratio*100:.1f}%) should be 0% at Schiphol!")
 
-    aircraft_types = (['H'] * num_heavy +
-                     ['M'] * num_medium +
-                     ['L'] * num_light)
+    # Create aircraft list with only B, D, E
+    aircraft_types = (['B'] * num_cat_b +
+                     ['D'] * num_cat_d +
+                     ['E'] * num_cat_e)
     np.random.shuffle(aircraft_types)
 
     # Evening rush: arrivals spread over 2 hours (120 minutes)
@@ -157,7 +208,8 @@ def create_schiphol_evening_rush(
     # Create overlapping time windows to force conflicts
     # This simulates realistic runway congestion
     for i, ac_type in enumerate(aircraft_types):
-        type_key = {'H': 'HEAVY', 'M': 'MEDIUM', 'L': 'LIGHT'}[ac_type]
+        # Only B, D, E are used at Schiphol
+        type_key = {'B': 'CAT_B', 'D': 'CAT_D', 'E': 'CAT_E'}[ac_type]
         type_info = AIRCRAFT_TYPES[type_key]
 
         # Scheduled Time of Arrival (STA) - peak hour distribution
