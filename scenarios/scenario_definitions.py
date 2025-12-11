@@ -17,36 +17,36 @@ from code.data_loader import DataLoader
 SCENARIOS = {
     '1': {
         'name': 'Light Traffic - Single Runway',
-        'description': 'Baseline scenario with minimal complexity',
-        'num_aircraft': 10,
+        'description': 'Baseline scenario with minimal complexity (ICAO correct)',
+        'num_aircraft': 19,
         'num_runways': 1,
         'data_file': 'data/schiphol_1runway_light.txt'
     },
     '2': {
         'name': 'Heavy Traffic - Single Runway',
-        'description': 'Maximum load on single runway',
-        'num_aircraft': 20,
+        'description': 'Maximum load on single runway (ICAO correct)',
+        'num_aircraft': 33,
         'num_runways': 1,
         'data_file': 'data/schiphol_1runway_heavy.txt'
     },
     '3': {
         'name': 'Heavy Traffic - Three Runways',
-        'description': 'Complex scenario with multiple runways',
-        'num_aircraft': 50,
+        'description': 'Complex scenario with multiple runways (ICAO correct)',
+        'num_aircraft': 49,
         'num_runways': 3,
         'data_file': 'data/schiphol_3runways_heavy.txt'
     },
     '4': {
         'name': 'Extreme Rush Hour',
-        'description': 'Same as scenario 3 (alternative configuration)',
-        'num_aircraft': 50,
+        'description': 'Same as scenario 3 with different seed (ICAO correct)',
+        'num_aircraft': 49,
         'num_runways': 3,
         'data_file': 'data/schiphol_3runways_heavy.txt'
     },
     '5': {
         'name': 'Realistic Schiphol Peak Hour',
-        'description': 'Realistic scenario based on actual Schiphol data (11:00-11:40 peak)',
-        'num_aircraft': 50,
+        'description': 'Realistic scenario based on actual Schiphol data (11:00-11:40 peak, ICAO correct)',
+        'num_aircraft': 49,
         'num_runways': 3,
         'data_file': 'data/schiphol_realistic_peak.txt'
     }

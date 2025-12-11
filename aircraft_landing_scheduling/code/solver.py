@@ -140,6 +140,7 @@ class OptimalSolver:
         self,
         num_runways: int = 1,
         time_limit: int = 300,
+        gap: float = 0.02,
         use_multi_start: bool = False
     ) -> ComparisonResult:
         """
@@ -148,6 +149,7 @@ class OptimalSolver:
         Args:
             num_runways: Number of runways
             time_limit: Time limit for optimal solver
+            gap: Optimality gap (default 0.02 = 2%)
             use_multi_start: Use multi-start heuristic
 
         Returns:
@@ -171,7 +173,8 @@ class OptimalSolver:
         print("-" * 70)
         optimal_solution = self.solve_optimal(
             num_runways=num_runways,
-            time_limit=time_limit
+            time_limit=time_limit,
+            gap=gap
         )
 
         if optimal_solution is None:

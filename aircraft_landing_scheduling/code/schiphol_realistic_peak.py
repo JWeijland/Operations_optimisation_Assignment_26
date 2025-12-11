@@ -23,61 +23,74 @@ from typing import List, Dict, Tuple
 # CAT-F = Light (Falcon, Citation, Beechjet)
 
 # Separation matrix in MINUTES (converted from ICAO seconds)
-# Original ICAO values in seconds, divided by 60 for minutes
+# Based on WhatsApp Image 2025-12-07 at 15.35.03
+# NOTE: Only heavier → lighter requires separation, otherwise use minimum (60s = 1.0min)
 SEPARATION_MATRIX = {
-    # Leader CAT-B (Upper Heavy) → Follower (100-180s → 1.67-3.00min)
-    'CAT-B': {'CAT-B': 1.67, 'CAT-C': 2.00, 'CAT-D': 2.33, 'CAT-E': 2.67, 'CAT-F': 3.00},
+    # Leader CAT-B (Upper Heavy) → Follower
+    # B→D: 100s, B→E: 120s, B→F: 140s
+    'CAT-B': {'CAT-B': 1.0, 'CAT-C': 1.0, 'CAT-D': 100/60, 'CAT-E': 120/60, 'CAT-F': 140/60},
 
-    # Leader CAT-C (Lower Heavy) → Follower (80-120s → 1.33-2.00min)
-    'CAT-C': {'CAT-B': 1.33, 'CAT-C': 1.33, 'CAT-D': 1.67, 'CAT-E': 2.00, 'CAT-F': 2.00},
+    # Leader CAT-C (Lower Heavy) → Follower
+    # C→D: 80s, C→E: 100s, C→F: 120s
+    'CAT-C': {'CAT-B': 1.0, 'CAT-C': 1.0, 'CAT-D': 80/60, 'CAT-E': 100/60, 'CAT-F': 120/60},
 
-    # Leader CAT-D (Upper Medium) → Follower (60-120s → 1.00-2.00min)
-    'CAT-D': {'CAT-B': 1.00, 'CAT-C': 1.00, 'CAT-D': 1.33, 'CAT-E': 1.67, 'CAT-F': 2.00},
+    # Leader CAT-D (Upper Medium) → Follower
+    # D→F: 120s only
+    'CAT-D': {'CAT-B': 1.0, 'CAT-C': 1.0, 'CAT-D': 1.0, 'CAT-E': 1.0, 'CAT-F': 120/60},
 
-    # Leader CAT-E (Lower Medium) → Follower (60-100s → 1.00-1.67min)
-    'CAT-E': {'CAT-B': 1.00, 'CAT-C': 1.00, 'CAT-D': 1.00, 'CAT-E': 1.67, 'CAT-F': 1.67},
+    # Leader CAT-E (Lower Medium) → Follower
+    # E→F: 100s only
+    'CAT-E': {'CAT-B': 1.0, 'CAT-C': 1.0, 'CAT-D': 1.0, 'CAT-E': 1.0, 'CAT-F': 100/60},
 
-    # Leader CAT-F (Light) → Follower (60-80s → 1.00-1.33min)
-    'CAT-F': {'CAT-B': 1.00, 'CAT-C': 1.00, 'CAT-D': 1.00, 'CAT-E': 1.00, 'CAT-F': 1.33},
+    # Leader CAT-F (Light) → Follower
+    # F→F: 80s only
+    'CAT-F': {'CAT-B': 1.0, 'CAT-C': 1.0, 'CAT-D': 1.0, 'CAT-E': 1.0, 'CAT-F': 80/60},
 }
 
 # Realistische Schiphol vliegtuig types en hun dagelijkse frequentie
+# CORRECTE ICAO CLASSIFICATIE volgens WhatsApp Image 2025-12-07 at 16.52.54
+# CAT-A: > 450,000 kg (A380) - UITGESLOTEN
+# CAT-B: 300,000-450,000 kg (Upper Heavy)
+# CAT-C: 136,000-300,000 kg (Lower Heavy)
+# CAT-D: 70,000-136,000 kg (Upper Medium)
+# CAT-E: 20,000-70,000 kg (Lower Medium)
+# CAT-F: < 20,000 kg (Light)
+
 AIRCRAFT_FLEET = {
-    # CAT-B: Upper Heavy (20% van traffic)
+    # CAT-B: Upper Heavy (10% van traffic) - MTOW 300-450 ton
     'CAT-B': [
-        ('B747-400', 20),      # 20 per dag
-        ('B777-300ER', 40),    # 40 per dag
-        ('A330-300', 29),      # 29 per dag
-        ('A340-300', 10),      # Minder frequent
+        ('B747-400', 20),      # MTOW 397 ton - 20/dag
+        ('B777-300ER', 40),    # MTOW 352 ton - 40/dag
     ],
 
-    # CAT-C: Lower Heavy (15% van traffic)
+    # CAT-C: Lower Heavy (30% van traffic) - MTOW 136-300 ton
+    # BELANGRIJK: B787 en A330 zijn CAT-C, niet CAT-B!
     'CAT-C': [
-        ('B767-300', 25),      # Cargo
-        ('B757-200', 15),      # KLM/Transavia
-        ('A300-600', 10),      # Cargo
+        ('B787-9', 16),        # MTOW 251 ton - 16/dag
+        ('A330-300', 29),      # MTOW 230 ton - 29/dag
+        ('B767-300', 30),      # MTOW 186 ton - Cargo (handmatig)
+        ('A300-600', 15),      # MTOW 171 ton - Cargo (handmatig)
     ],
 
-    # CAT-D: Upper Medium (50% van traffic - GROOTSTE GROEP)
+    # CAT-D: Upper Medium (45% van traffic) - MTOW 70-136 ton - GROOTSTE GROEP
     'CAT-D': [
-        ('B737-800', 226),     # 226 per dag - MEESTE!
-        ('A320-200', 95),      # 95 per dag
-        ('A321-200', 40),      # 40 per dag
-        ('A319-100', 30),      # 30 per dag
+        ('B737-800', 226),     # MTOW 78 ton - 226/dag - MEESTE!
+        ('A320-200', 95),      # MTOW 77 ton - 95/dag
+        ('A321-200', 40),      # MTOW 93 ton - 40/dag (handmatig)
     ],
 
-    # CAT-E: Lower Medium (10% van traffic)
+    # CAT-E: Lower Medium (12% van traffic) - MTOW 20-70 ton
     'CAT-E': [
-        ('ATR-72', 50),        # Regionaal
-        ('B717-200', 20),      # Regionaal
-        ('E190', 30),          # Embraer
+        ('E190', 100),         # MTOW 52 ton - 100/dag
+        ('E175', 60),          # MTOW 40 ton - 60/dag
+        ('ATR-72', 30),        # MTOW 23 ton - Regionaal (handmatig)
     ],
 
-    # CAT-F: Light (5% van traffic)
+    # CAT-F: Light (3% van traffic) - MTOW < 20 ton
     'CAT-F': [
-        ('Falcon 20', 20),     # Business jets
-        ('Citation', 30),      # Business jets
-        ('Beechjet', 15),      # Business jets
+        ('Cessna Citation', 20),    # Business jets
+        ('Learjet 45', 15),         # Business jets
+        ('ERJ-135', 10),            # Small regional
     ],
 }
 
@@ -114,13 +127,14 @@ def generate_schiphol_peak_hour(
     """
     np.random.seed(seed)
 
-    # Verdeling volgens realistische Schiphol mix
+    # Verdeling volgens realistische Schiphol mix met CORRECTE ICAO classificatie
+    # Gebaseerd op analyse van Schiphol data met correcte MTOW ranges
     category_distribution = {
-        'CAT-B': 0.20,  # 20% heavy
-        'CAT-C': 0.15,  # 15% heavy
-        'CAT-D': 0.50,  # 50% medium (MEESTE)
-        'CAT-E': 0.10,  # 10% medium
-        'CAT-F': 0.05,  # 5% light
+        'CAT-B': 0.10,  # 10% upper heavy (B747, B777 alleen!)
+        'CAT-C': 0.30,  # 30% lower heavy (B787, A330, B767, A300)
+        'CAT-D': 0.45,  # 45% upper medium (B737, A320 - MEESTE)
+        'CAT-E': 0.12,  # 12% lower medium (E190, E175, ATR-72)
+        'CAT-F': 0.03,  # 3% light (business jets)
     }
 
     # Genereer vliegtuigen
