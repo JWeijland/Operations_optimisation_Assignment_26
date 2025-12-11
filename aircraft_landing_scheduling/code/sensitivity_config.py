@@ -31,8 +31,8 @@ class RushHourConfig:
 class AircraftMixConfig:
     """Configuration for aircraft type distribution."""
     heavy_ratio: float = 0.30
-    medium_ratio: float = 0.60
-    light_ratio: float = 0.10
+    medium_ratio: float = 0.67
+    light_ratio: float = 0.03
 
     def __post_init__(self):
         total = self.heavy_ratio + self.medium_ratio + self.light_ratio
@@ -217,15 +217,15 @@ def create_default_config() -> SensitivityAnalysisConfig:
         ),
         aircraft_mix=AircraftMixConfig(
             heavy_ratio=0.30,
-            medium_ratio=0.60,
-            light_ratio=0.10
+            medium_ratio=0.67,
+            light_ratio=0.03
         )
     )
 
 
 def create_extreme_rush_config() -> SensitivityAnalysisConfig:
     """Create configuration with extreme rush hour (90% concentration).
-    NOTE: Aircraft mix ratio's blijven vast zoals default (30/60/10)."""
+    NOTE: Aircraft mix ratio's blijven vast zoals default (30/67/3)."""
     return SensitivityAnalysisConfig(
         experiment_name="extreme_rush_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -237,8 +237,8 @@ def create_extreme_rush_config() -> SensitivityAnalysisConfig:
         ),
         aircraft_mix=AircraftMixConfig(
             heavy_ratio=0.30,  # FIXED: Same as default
-            medium_ratio=0.60,  # FIXED: Same as default
-            light_ratio=0.10   # FIXED: Same as default
+            medium_ratio=0.67,  # FIXED: Same as default
+            light_ratio=0.03   # FIXED: Same as default
         )
     )
 
@@ -259,7 +259,7 @@ def create_no_rush_config() -> SensitivityAnalysisConfig:
 
 def create_heavy_traffic_config() -> SensitivityAnalysisConfig:
     """Create configuration focused on heavy aircraft.
-    NOTE: Aircraft mix ratio's blijven vast zoals default (30/60/10)."""
+    NOTE: Aircraft mix ratio's blijven vast zoals default (30/67/3)."""
     return SensitivityAnalysisConfig(
         experiment_name="heavy_traffic_sensitivity",
         aircraft_counts=[20, 30, 40, 50],
@@ -271,8 +271,8 @@ def create_heavy_traffic_config() -> SensitivityAnalysisConfig:
         ),
         aircraft_mix=AircraftMixConfig(
             heavy_ratio=0.30,  # FIXED: Same as default
-            medium_ratio=0.60,  # FIXED: Same as default
-            light_ratio=0.10   # FIXED: Same as default
+            medium_ratio=0.67,  # FIXED: Same as default
+            light_ratio=0.03   # FIXED: Same as default
         )
     )
 

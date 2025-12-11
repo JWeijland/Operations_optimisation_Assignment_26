@@ -132,9 +132,15 @@ def create_schiphol_evening_rush(
         "Aircraft type ratios must sum to 1.0"
 
     # Generate aircraft mix
-    num_heavy = int(num_aircraft * heavy_ratio)
-    num_medium = int(num_aircraft * medium_ratio)
+    # Round to nearest integer while ensuring at least 1 light aircraft
+    num_heavy = round(num_aircraft * heavy_ratio)
+    num_medium = round(num_aircraft * medium_ratio)
     num_light = num_aircraft - num_heavy - num_medium
+
+    # Ensure at least 1 light aircraft (adjust medium if needed)
+    if num_light < 1:
+        num_light = 1
+        num_medium = num_aircraft - num_heavy - num_light
 
     aircraft_types = (['H'] * num_heavy +
                      ['M'] * num_medium +
